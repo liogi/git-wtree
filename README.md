@@ -7,7 +7,7 @@ Streamline your git worktree workflow: create isolated branches, sync environmen
 ## Install
 
 ```bash
-npm install -g wtree
+npm install -g @liogi/wtree
 ```
 
 ## Usage
