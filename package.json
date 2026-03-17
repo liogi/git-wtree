@@ -1,11 +1,11 @@
 {
-  "name": "@liogi/wtree",
-  "version": "0.1.1",
+  "name": "git-wtree",
+  "version": "0.1.0",
   "description": "Git worktree manager with .env syncing and IDE integration",
   "type": "module",
   "bin": {
-    "wtree": "./dist/index.js",
-    "wt": "./dist/index.js"
+    "gitwtree": "./dist/index.js",
+    "gwt": "./dist/index.js"
   },
   "scripts": {
     "build": "tsc",
@@ -41,6 +41,6 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/liogi/wtree.git"
+    "url": "git+https://github.com/liogi/git-wtree.git"
   }
 }

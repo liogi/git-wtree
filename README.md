@@ -1,4 +1,4 @@
-# wtree
+# git-wtree
 
 > Git worktree manager with .env syncing and IDE integration
 
@@ -7,67 +7,67 @@ Streamline your git worktree workflow: create isolated branches, sync environmen
 ## Install
 
 ```bash
-npm install -g @liogi/wtree
+npm install -g git-wtree
 ```
 
 ## Usage
 
 ```bash
-wtree <command>
+gitwtree <command>
 # or
-wt <command>
+gwt <command>
 ```
 
 ### Commands
 
-| Command                         | Description                                                    |
-| ------------------------------- | -------------------------------------------------------------- |
-| `wtree add <branch>`            | Create a worktree, sync `.env` files, and install dependencies |
-| `wtree rm <branch>`             | Remove a worktree                                              |
-| `wtree ls`                      | List all worktrees                                             |
-| `wtree open <branch>`           | Open a worktree in your IDE                                    |
-| `wtree config`                  | Show current configuration                                     |
-| `wtree config ide`              | Configure your IDE                                             |
-| `wtree config scan-dirs [dirs]` | Set directories to scan for `.env` files                       |
-| `wtree help`                    | Show help                                                      |
+| Command                       | Description                                                    |
+| ----------------------------- | -------------------------------------------------------------- |
+| `gwt add <branch>`            | Create a worktree, sync `.env` files, and install dependencies |
+| `gwt rm <branch>`             | Remove a worktree                                              |
+| `gwt ls`                      | List all worktrees                                             |
+| `gwt open <branch>`           | Open a worktree in your IDE                                    |
+| `gwt config`                  | Show current configuration                                     |
+| `gwt config ide`              | Configure your IDE                                             |
+| `gwt config scan-dirs [dirs]` | Set directories to scan for `.env` files                       |
+| `gwt help`                    | Show help                                                      |
 
-### `wtree add <branch>`
+### `gwt add <branch>`
 
 Creates a git worktree for the given branch (creates the branch from `HEAD` if it doesn't exist), copies `.env` files from the main repo, and runs the package manager install.
 
 ```bash
-wtree add my-feature
+gwt add my-feature
 # Worktree created at ../myrepo-my-feature
 ```
 
-### `wtree open <branch>`
+### `gwt open <branch>`
 
 Opens the worktree in your configured IDE. On first use, a wizard will prompt you to choose your IDE.
 
 ```bash
-wtree open my-feature
+gwt open my-feature
 ```
 
 To reconfigure your IDE at any time:
 
 ```bash
-wtree config ide
+gwt config ide
 ```
 
 ### `.env` syncing
 
-By default, `wtree add` recursively scans the repo for `.env*` files (excluding `node_modules`, `.git`, `dist`, etc.) and copies them into the new worktree.
+By default, `gwt add` recursively scans the repo for `.env*` files (excluding `node_modules`, `.git`, `dist`, etc.) and copies them into the new worktree.
 
 To restrict scanning to specific directories:
 
 ```bash
-wtree config scan-dirs apps/api,apps/web
+gwt config scan-dirs apps/api,apps/web
 ```
 
 To reset back to auto scan:
 
 ```bash
-wtree config scan-dirs --reset
+gwt config scan-dirs --reset
 ```
 
 ## Worktree location
@@ -77,7 +77,7 @@ Worktrees are created as siblings of your repo directory:
 ```
 ~/projects/
   myrepo/           ← main repo
-  myrepo-my-feature ← worktree created by wtree
+  myrepo-my-feature ← worktree created by gwt
 ```
 
 ## Supported IDEs

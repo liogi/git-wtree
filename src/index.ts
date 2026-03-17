@@ -13,12 +13,12 @@ import {
 const program = new Command();
 
 program
-  .name("wtree")
+  .name("gitwtree")
   .description("Git worktree manager with .env syncing and IDE integration")
   .version("0.1.0")
   .addHelpText(
     "after",
-    "\nAlias: wt <command>\n\nExamples:\n  wtree add my-feature\n  wtree open my-feature\n  wtree rm my-feature\n  wtree config ide",
+    "\nAlias: gwt <command>\n\nExamples:\n  gwt add my-feature\n  gwt open my-feature\n  gwt rm my-feature\n  gwt config ide",
   );
 
 program
@@ -40,7 +40,7 @@ program
 
 const configCmd = program
   .command("config")
-  .description("Manage wtree configuration")
+  .description("Manage git-wtree configuration")
   .action(commandConfigShow);
 
 configCmd
