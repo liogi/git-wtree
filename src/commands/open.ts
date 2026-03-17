@@ -4,7 +4,7 @@ import { readConfig } from "../lib/config.js";
 import { runIdeWizard, openInIde } from "../lib/ide.js";
 
 export async function commandOpen(branch: string): Promise<void> {
-  intro(`wtree open ${branch}`);
+  intro(`gwt open ${branch}`);
 
   let worktreePath: string;
   try {
@@ -16,7 +16,7 @@ export async function commandOpen(branch: string): Promise<void> {
 
   if (!worktreeExists(worktreePath)) {
     log.error(
-      `No worktree found for branch '${branch}'\nRun: wtree add ${branch}`,
+      `No worktree found for branch '${branch}'\nRun: gwt add ${branch}`,
     );
     process.exit(1);
   }

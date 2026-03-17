@@ -3,7 +3,7 @@ import { readConfig, updateConfig } from "../lib/config.js";
 import { runIdeWizard } from "../lib/ide.js";
 
 export async function commandConfigIde(): Promise<void> {
-  intro("wtree config ide");
+  intro("gwt config ide");
   await runIdeWizard();
   outro("Config saved");
 }

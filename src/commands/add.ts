@@ -10,7 +10,7 @@ import { installDeps, detectPackageManager } from "../lib/packageManager.js";
 import { readConfig } from "../lib/config.js";
 
 export async function commandAdd(branch: string): Promise<void> {
-  intro(`wtree add ${branch}`);
+  intro(`gwt add ${branch}`);
 
   let root: string;
   try {

@@ -2,7 +2,7 @@ import { intro, outro, confirm, log, isCancel, cancel } from "@clack/prompts";
 import { getWorktreePath, worktreeExists, removeWorktree } from "../lib/git.js";
 
 export async function commandRm(branch: string): Promise<void> {
-  intro(`wtree rm ${branch}`);
+  intro(`gwt rm ${branch}`);
 
   const worktreePath = getWorktreePath(branch);
 

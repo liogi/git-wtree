@@ -8,7 +8,7 @@ export interface WtreeConfig {
   scanDirs?: string[] | null;
 }
 
-const CONFIG_DIR = path.join(os.homedir(), ".config", "wtree");
+const CONFIG_DIR = path.join(os.homedir(), ".config", "git-wtree");
 const CONFIG_PATH = path.join(CONFIG_DIR, "config.json");
 
 export function readConfig(): WtreeConfig {
