@@ -72,7 +72,7 @@ export async function runIdeWizard(): Promise<void> {
   if (!found.command) {
     updateConfig({ ide: selected as string, ideCommand: undefined });
     log.info(
-      `IDE set to ${found.label}. Terminal-based IDEs won't be auto-opened.\nUse "cd $(wtree path <branch>)" to navigate to the worktree.`,
+      `IDE set to ${found.label}. Terminal-based IDEs won't be auto-opened.\nUse "cd $(gwt path <branch>)" to navigate to the worktree.`,
     );
     return;
   }
