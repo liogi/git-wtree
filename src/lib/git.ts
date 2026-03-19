@@ -48,6 +48,38 @@ export function worktreeExists(worktreePath: string): boolean {
   return fs.existsSync(worktreePath);
 }
 
+export function fetchBranch(branch: string): void {
+  const root = getRepoRoot();
+  try {
+    execSync(`git fetch origin "${branch}"`, { cwd: root, stdio: "inherit" });
+  } catch {
+    // remote may not exist, continue anyway
+  }
+}
+
+export function remoteBranchExists(branch: string): boolean {
+  try {
+    execSync(`git show-ref --verify --quiet refs/remotes/origin/${branch}`, {
+      stdio: "ignore",
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function resetToRemote(worktreePath: string, branch: string): void {
+  execSync(`git reset --hard origin/${branch}`, {
+    cwd: worktreePath,
+    stdio: "inherit",
+  });
+}
+
+export function deleteLocalBranch(branch: string): void {
+  const root = getRepoRoot();
+  execSync(`git branch -D "${branch}"`, { cwd: root, stdio: "inherit" });
+}
+
 export function addWorktree(worktreePath: string, branch: string): void {
   const root = getRepoRoot();
   if (branchExists(branch)) {
