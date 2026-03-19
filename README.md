@@ -20,24 +20,28 @@ gwt <command>
 
 ### Commands
 
-| Command                       | Description                                                    |
-| ----------------------------- | -------------------------------------------------------------- |
-| `gwt add <branch>`            | Create a worktree, sync `.env` files, and install dependencies |
-| `gwt rm <branch>`             | Remove a worktree                                              |
-| `gwt ls`                      | List all worktrees                                             |
-| `gwt open <branch>`           | Open a worktree in your IDE                                    |
-| `gwt config`                  | Show current configuration                                     |
-| `gwt config ide`              | Configure your IDE                                             |
-| `gwt config scan-dirs [dirs]` | Set directories to scan for `.env` files                       |
-| `gwt help`                    | Show help                                                      |
+| Command                            | Description                                                    |
+| ---------------------------------- | -------------------------------------------------------------- |
+| `gwt add <branch> [--from <base>]` | Create a worktree, sync `.env` files, and install dependencies |
+| `gwt rm <branch>`                  | Remove a worktree                                              |
+| `gwt ls`                           | List all worktrees                                             |
+| `gwt open <branch>`                | Open a worktree in your IDE                                    |
+| `gwt config`                       | Show current configuration                                     |
+| `gwt config ide`                   | Configure your IDE                                             |
+| `gwt config scan-dirs [dirs]`      | Set directories to scan for `.env` files                       |
+| `gwt help`                         | Show help                                                      |
 
 ### `gwt add <branch>`
 
-Creates a git worktree for the given branch (creates the branch from `HEAD` if it doesn't exist), copies `.env` files from the main repo, and runs the package manager install.
+Creates a git worktree for the given branch, copies `.env` files from the main repo, and runs the package manager install.
+
+- If the branch **doesn't exist**, it's created from `HEAD` by default — use `--from` to specify a different base.
+- If the branch **already exists locally**, it fetches the latest remote changes and resets to them (handles force-pushes cleanly).
 
 ```bash
-gwt add my-feature
-# Worktree created at ../myrepo-my-feature
+gwt add my-feature                     # create from HEAD
+gwt add my-feature --from production   # create from production
+gwt add codex/fix-bug                  # checkout existing branch, reset to remote
 ```
 
 ### `gwt open <branch>`
