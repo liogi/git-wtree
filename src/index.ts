@@ -24,7 +24,10 @@ program
 program
   .command("add <branch>")
   .description("Create a worktree, sync .env files, and install dependencies")
-  .action(commandAdd);
+  .option("--from <base>", "Base branch to create from (default: HEAD)")
+  .action((branch: string, options: { from?: string }) =>
+    commandAdd(branch, options.from),
+  );
 
 program
   .command("rm <branch>")

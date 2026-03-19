@@ -80,7 +80,11 @@ export function deleteLocalBranch(branch: string): void {
   execSync(`git branch -D "${branch}"`, { cwd: root, stdio: "inherit" });
 }
 
-export function addWorktree(worktreePath: string, branch: string): void {
+export function addWorktree(
+  worktreePath: string,
+  branch: string,
+  from?: string,
+): void {
   const root = getRepoRoot();
   if (branchExists(branch)) {
     execSync(`git worktree add "${worktreePath}" "${branch}"`, {
@@ -88,10 +92,14 @@ export function addWorktree(worktreePath: string, branch: string): void {
       stdio: "inherit",
     });
   } else {
-    execSync(`git worktree add "${worktreePath}" -b "${branch}"`, {
-      cwd: root,
-      stdio: "inherit",
-    });
+    const base = from ? `"${from}"` : "";
+    execSync(
+      `git worktree add "${worktreePath}" -b "${branch}" ${base}`.trim(),
+      {
+        cwd: root,
+        stdio: "inherit",
+      },
+    );
   }
 }
 
