@@ -13,7 +13,7 @@ import { copyEnvFiles } from "../lib/env.js";
 import { installDeps, detectPackageManager } from "../lib/packageManager.js";
 import { readConfig } from "../lib/config.js";
 
-export async function commandAdd(branch: string): Promise<void> {
+export async function commandAdd(branch: string, from?: string): Promise<void> {
   intro(`gwt add ${branch}`);
 
   let root: string;
@@ -39,9 +39,13 @@ export async function commandAdd(branch: string): Promise<void> {
     fetchBranch(branch);
   }
 
+  if (from) {
+    log.info(`Creating from base branch: ${from}`);
+  }
+
   log.step("Creating git worktree…");
   try {
-    addWorktree(worktreePath, branch);
+    addWorktree(worktreePath, branch, from);
   } catch (e) {
     log.error((e as Error).message);
     process.exit(1);
