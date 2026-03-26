@@ -9,7 +9,7 @@ import {
   resetToRemote,
   addWorktree,
 } from "../lib/git.js";
-import { copyEnvFiles } from "../lib/env.js";
+import { copyEnvFiles, copyLocalFiles } from "../lib/env.js";
 import { installDeps, detectPackageManager } from "../lib/packageManager.js";
 import { readConfig } from "../lib/config.js";
 
@@ -60,9 +60,13 @@ export async function commandAdd(branch: string, from?: string): Promise<void> {
     }
   }
 
-  log.step("Syncing .env files…");
   const config = readConfig();
+
+  log.step("Syncing .env files…");
   copyEnvFiles(root, worktreePath, config.scanDirs);
+
+  log.step("Syncing local files (*.local.*)…");
+  copyLocalFiles(root, worktreePath);
 
   const pm = detectPackageManager(root);
   log.step(`Installing dependencies with ${pm}…`);
