@@ -10,7 +10,12 @@ import {
   addWorktree,
 } from "../lib/git.js";
 import { copyEnvFiles, copyLocalFiles } from "../lib/env.js";
-import { installDeps, detectPackageManager } from "../lib/packageManager.js";
+import {
+  installDeps,
+  detectPackageManager,
+  hasScript,
+  runScript,
+} from "../lib/packageManager.js";
 import { readConfig } from "../lib/config.js";
 
 export async function commandAdd(branch: string, from?: string): Promise<void> {
@@ -75,6 +80,15 @@ export async function commandAdd(branch: string, from?: string): Promise<void> {
   } catch (e) {
     log.error((e as Error).message);
     process.exit(1);
+  }
+
+  if (hasScript(worktreePath, "prepare")) {
+    log.step("Running prepare script…");
+    try {
+      runScript(worktreePath, "prepare");
+    } catch (e) {
+      log.warn(`prepare script failed: ${(e as Error).message}`);
+    }
   }
 
   outro(`Worktree ready!\n   Path:   ${worktreePath}\n   Branch: ${branch}`);
