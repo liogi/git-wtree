@@ -15,7 +15,7 @@ const program = new Command();
 program
   .name("gitwtree")
   .description("Git worktree manager with .env syncing and IDE integration")
-  .version("0.1.0")
+  .version("0.1.6")
   .addHelpText(
     "after",
     "\nAlias: gwt <command>\n\nExamples:\n  gwt add my-feature\n  gwt open my-feature\n  gwt rm my-feature\n  gwt config ide",
