@@ -16,3 +16,21 @@ export function installDeps(root: string): void {
   const cmd = `${pm} install`;
   execSync(cmd, { cwd: root, stdio: "inherit" });
 }
+
+export function hasScript(root: string, scriptName: string): boolean {
+  const pkgPath = path.join(root, "package.json");
+  if (!fs.existsSync(pkgPath)) return false;
+  try {
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8")) as {
+      scripts?: Record<string, string>;
+    };
+    return Boolean(pkg.scripts?.[scriptName]);
+  } catch {
+    return false;
+  }
+}
+
+export function runScript(cwd: string, scriptName: string): void {
+  const pm = detectPackageManager(cwd);
+  execSync(`${pm} run ${scriptName}`, { cwd, stdio: "inherit" });
+}
