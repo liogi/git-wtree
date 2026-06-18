@@ -112,6 +112,54 @@ export function removeWorktree(worktreePath: string): void {
   execSync("git worktree prune", { cwd: root, stdio: "inherit" });
 }
 
+function isTracked(worktreePath: string, relPath: string): boolean {
+  try {
+    execSync(`git ls-files --error-unmatch "${relPath}"`, {
+      cwd: worktreePath,
+      stdio: "ignore",
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Keeps a worktree-local file out of git status: skip-worktree for tracked files,
+// or the worktree's local info/exclude for untracked ones. No effect on the shared .gitignore.
+export function hideFromGit(worktreePath: string, relPath: string): void {
+  if (isTracked(worktreePath, relPath)) {
+    try {
+      execSync(`git update-index --skip-worktree "${relPath}"`, {
+        cwd: worktreePath,
+        stdio: "ignore",
+      });
+    } catch {
+      // best effort
+    }
+    return;
+  }
+
+  try {
+    const excludeRel = execSync("git rev-parse --git-path info/exclude", {
+      cwd: worktreePath,
+      encoding: "utf-8",
+    }).trim();
+    const excludePath = path.isAbsolute(excludeRel)
+      ? excludeRel
+      : path.join(worktreePath, excludeRel);
+
+    let current = "";
+    if (fs.existsSync(excludePath))
+      current = fs.readFileSync(excludePath, "utf-8");
+    if (current.split("\n").some((l) => l.trim() === relPath)) return;
+
+    const prefix = current.length > 0 && !current.endsWith("\n") ? "\n" : "";
+    fs.appendFileSync(excludePath, `${prefix}${relPath}\n`);
+  } catch {
+    // best effort
+  }
+}
+
 export function listWorktrees(): WorktreeEntry[] {
   const root = getRepoRoot();
   const output = execSync("git worktree list --porcelain", {
