@@ -71,5 +71,10 @@ export function commandConfigStatusline(value?: string): void {
 
 export function commandConfigShow(): void {
   const config = readConfig();
-  console.log(JSON.stringify(config, null, 2));
+  const resolved = {
+    ...config,
+    theme: config.theme !== false,
+    statusline: config.statusline !== false,
+  };
+  console.log(JSON.stringify(resolved, null, 2));
 }
