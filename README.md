@@ -2,7 +2,7 @@
 
 > Git worktree manager with .env syncing and IDE integration
 
-Streamline your git worktree workflow: create isolated branches, sync environment files, install dependencies, and open your IDE — all in one command.
+Streamline your git worktree workflow: create isolated branches, sync environment files, install dependencies, give each worktree its own editor color, and open your IDE — all in one command.
 
 ## Install
 
@@ -29,6 +29,8 @@ gwt <command>
 | `gwt config`                       | Show current configuration                                     |
 | `gwt config ide`                   | Configure your IDE                                             |
 | `gwt config scan-dirs [dirs]`      | Set directories to scan for `.env` files                       |
+| `gwt config theme [on\|off]`       | Toggle per-worktree VS Code color + window title               |
+| `gwt config statusline [on\|off]`  | Toggle the Claude Code branch statusline                       |
 | `gwt help`                         | Show help                                                      |
 
 ### `gwt add <branch>`
@@ -72,6 +74,22 @@ To reset back to auto scan:
 
 ```bash
 gwt config scan-dirs --reset
+```
+
+### Worktree theming
+
+To make parallel windows easy to tell apart, `gwt add` gives each worktree its own visual identity:
+
+- A **deterministic color** (derived from the branch name) is applied to the VS Code / Cursor title bar and activity bar, plus a worktree-aware `window.title`. Written to the worktree's `.vscode/settings.json` and merged into any existing settings without dropping your keys or comments.
+- A **branch statusline** is written to `.claude/settings.local.json` so each Claude Code session shows its branch.
+
+Both files are kept out of `git status` automatically — `skip-worktree` when the file is tracked, the worktree's local `info/exclude` otherwise. Your shared `.gitignore` is never touched.
+
+Toggle either feature (both on by default):
+
+```bash
+gwt config theme off        # disable color + window title
+gwt config statusline off   # disable the Claude statusline
 ```
 
 ## Worktree location
