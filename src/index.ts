@@ -8,6 +8,8 @@ import {
   commandConfigIde,
   commandConfigScanDirs,
   commandConfigShow,
+  commandConfigTheme,
+  commandConfigStatusline,
 } from "./commands/config.js";
 
 const program = new Command();
@@ -60,6 +62,20 @@ configCmd
   .action((dirs: string | undefined, options: { reset?: boolean }) =>
     commandConfigScanDirs(dirs, options.reset),
   );
+
+configCmd
+  .command("theme [value]")
+  .description(
+    "Enable/disable per-worktree VS Code color + title (on/off). Omit to show current value.",
+  )
+  .action((value: string | undefined) => commandConfigTheme(value));
+
+configCmd
+  .command("statusline [value]")
+  .description(
+    "Enable/disable the Claude Code branch statusline (on/off). Omit to show current value.",
+  )
+  .action((value: string | undefined) => commandConfigStatusline(value));
 
 // Show help when called with no arguments
 if (process.argv.length <= 2) {
