@@ -6,6 +6,8 @@ export interface WtreeConfig {
   ide?: string;
   ideCommand?: string;
   scanDirs?: string[] | null;
+  theme?: boolean;
+  statusline?: boolean;
 }
 
 const CONFIG_DIR = path.join(os.homedir(), ".config", "git-wtree");

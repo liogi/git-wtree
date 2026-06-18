@@ -33,6 +33,42 @@ export function commandConfigScanDirs(dirs?: string, reset?: boolean): void {
   log.success(`scan-dirs set to: ${parsed.join(", ")}`);
 }
 
+function parseToggle(value: string): boolean | undefined {
+  if (value === "on" || value === "true") return true;
+  if (value === "off" || value === "false") return false;
+  return undefined;
+}
+
+export function commandConfigTheme(value?: string): void {
+  const config = readConfig();
+  if (value === undefined) {
+    console.log(`theme: ${config.theme === false ? "off" : "on"}`);
+    return;
+  }
+  const parsed = parseToggle(value);
+  if (parsed === undefined) {
+    log.error("Value must be 'on' or 'off'");
+    process.exit(1);
+  }
+  updateConfig({ theme: parsed });
+  log.success(`theme ${parsed ? "enabled" : "disabled"}`);
+}
+
+export function commandConfigStatusline(value?: string): void {
+  const config = readConfig();
+  if (value === undefined) {
+    console.log(`statusline: ${config.statusline === false ? "off" : "on"}`);
+    return;
+  }
+  const parsed = parseToggle(value);
+  if (parsed === undefined) {
+    log.error("Value must be 'on' or 'off'");
+    process.exit(1);
+  }
+  updateConfig({ statusline: parsed });
+  log.success(`statusline ${parsed ? "enabled" : "disabled"}`);
+}
+
 export function commandConfigShow(): void {
   const config = readConfig();
   console.log(JSON.stringify(config, null, 2));
