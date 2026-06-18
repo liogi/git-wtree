@@ -20,7 +20,7 @@ program
   .version("0.1.6")
   .addHelpText(
     "after",
-    "\nAlias: gwt <command>\n\nExamples:\n  gwt add my-feature\n  gwt open my-feature\n  gwt rm my-feature\n  gwt config ide",
+    "\nAlias: gwt <command>\n\nExamples:\n  gwt add my-feature\n  gwt open my-feature\n  gwt rm my-feature\n  gwt config ide\n  gwt config theme off\n  gwt config statusline off",
   );
 
 program
@@ -45,7 +45,11 @@ program
 
 const configCmd = program
   .command("config")
-  .description("Manage git-wtree configuration")
+  .description("Manage git-wtree configuration");
+
+configCmd
+  .command("show", { isDefault: true })
+  .description("Show current configuration")
   .action(commandConfigShow);
 
 configCmd
