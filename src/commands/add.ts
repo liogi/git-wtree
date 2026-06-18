@@ -8,7 +8,9 @@ import {
   remoteBranchExists,
   resetToRemote,
   addWorktree,
+  hideFromGit,
 } from "../lib/git.js";
+import { writeVscodeTheme, writeClaudeStatusline } from "../lib/ideTheme.js";
 import { copyEnvFiles, copyLocalFiles } from "../lib/env.js";
 import {
   installDeps,
@@ -88,6 +90,26 @@ export async function commandAdd(branch: string, from?: string): Promise<void> {
       runScript(worktreePath, "prepare");
     } catch (e) {
       log.warn(`prepare script failed: ${(e as Error).message}`);
+    }
+  }
+
+  if (config.theme !== false) {
+    log.step("Applying worktree theme…");
+    try {
+      writeVscodeTheme(worktreePath, branch);
+      hideFromGit(worktreePath, ".vscode/settings.json");
+    } catch (e) {
+      log.warn(`Could not apply theme: ${(e as Error).message}`);
+    }
+  }
+
+  if (config.statusline !== false) {
+    log.step("Configuring Claude statusline…");
+    try {
+      writeClaudeStatusline(worktreePath);
+      hideFromGit(worktreePath, ".claude/settings.local.json");
+    } catch (e) {
+      log.warn(`Could not configure statusline: ${(e as Error).message}`);
     }
   }
 
