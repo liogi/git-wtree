@@ -20,22 +20,24 @@ gwt <command>
 
 ### Commands
 
-| Command                            | Description                                                    |
-| ---------------------------------- | -------------------------------------------------------------- |
-| `gwt add <branch> [--from <base>]` | Create a worktree, sync `.env` files, and install dependencies |
-| `gwt rm <branch>`                  | Remove a worktree                                              |
-| `gwt ls`                           | List all worktrees                                             |
-| `gwt open <branch>`                | Open a worktree in your IDE                                    |
-| `gwt config`                       | Show current configuration                                     |
-| `gwt config ide`                   | Configure your IDE                                             |
-| `gwt config scan-dirs [dirs]`      | Set directories to scan for `.env` files                       |
-| `gwt config theme [on\|off]`       | Toggle per-worktree VS Code color + window title               |
-| `gwt config statusline [on\|off]`  | Toggle the Claude Code branch statusline                       |
-| `gwt help`                         | Show help                                                      |
+| Command                             | Description                                                  |
+| ----------------------------------- | ------------------------------------------------------------ |
+| `gwt add <branch> [--from <base>]`  | Create a worktree, sync `.env` files, and run the setup hook |
+| `gwt rm <branch> [--force]`         | Remove a worktree (guards against unsaved changes)           |
+| `gwt ls`                            | List all worktrees                                           |
+| `gwt open <branch>`                 | Open a worktree in your IDE                                  |
+| `gwt config`                        | Show current configuration                                   |
+| `gwt config ide`                    | Configure your IDE                                           |
+| `gwt config scan-dirs [dirs]`       | Set directories to scan for `.env` files                     |
+| `gwt config setup [commands...]`    | Post-create commands (`auto` / `none` / custom)              |
+| `gwt config teardown [commands...]` | Pre-remove commands run in the worktree (`none` to clear)    |
+| `gwt config theme [on\|off]`        | Toggle per-worktree VS Code color + window title             |
+| `gwt config statusline [on\|off]`   | Toggle the Claude Code branch statusline                     |
+| `gwt help`                          | Show help                                                    |
 
 ### `gwt add <branch>`
 
-Creates a git worktree for the given branch, copies `.env` files from the main repo, and runs the package manager install.
+Creates a git worktree for the given branch, copies `.env` files from the main repo, and runs the [setup hook](#setup--teardown-hooks).
 
 - If the branch **doesn't exist**, it's created from `HEAD` by default — use `--from` to specify a different base.
 - If the branch **already exists locally**, it fetches the latest remote changes and resets to them (handles force-pushes cleanly).
@@ -74,6 +76,36 @@ To reset back to auto scan:
 
 ```bash
 gwt config scan-dirs --reset
+```
+
+### Setup & teardown hooks
+
+`gwt add` runs a **setup** hook after creating the worktree, and `gwt rm` runs a **teardown** hook before removing it. Both run inside the worktree.
+
+**Setup** defaults to `auto`: if a `package.json` is present it runs `<package-manager> install` (plus `<pm> run prepare` when that script exists); otherwise it does nothing — so non-Node repos stay untouched. Override it with your own commands for any stack:
+
+```bash
+gwt config setup                              # show current value
+gwt config setup "bundle install"             # Ruby
+gwt config setup "go mod download" "make dev" # multiple commands, in order
+gwt config setup none                         # do nothing
+gwt config setup auto                         # back to auto-detection
+```
+
+**Teardown** is empty by default. Use it to release resources tied to a worktree (databases, containers, ports) before it's deleted. If a teardown command fails, removal is aborted unless you pass `--force`:
+
+```bash
+gwt config teardown "docker compose down"
+gwt config teardown none                      # clear
+```
+
+### Removing worktrees
+
+`gwt rm <branch>` refuses to remove a worktree that has uncommitted changes, untracked files, or unpushed commits — to avoid losing work. Re-run with `--force` to remove anyway:
+
+```bash
+gwt rm my-feature
+gwt rm my-feature --force
 ```
 
 ### Worktree theming

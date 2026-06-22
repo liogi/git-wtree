@@ -10,6 +10,8 @@ import {
   commandConfigShow,
   commandConfigTheme,
   commandConfigStatusline,
+  commandConfigSetup,
+  commandConfigTeardown,
 } from "./commands/config.js";
 
 const program = new Command();
@@ -20,12 +22,12 @@ program
   .version("0.1.6")
   .addHelpText(
     "after",
-    "\nAlias: gwt <command>\n\nExamples:\n  gwt add my-feature\n  gwt open my-feature\n  gwt rm my-feature\n  gwt config ide\n  gwt config theme off\n  gwt config statusline off",
+    '\nAlias: gwt <command>\n\nExamples:\n  gwt add my-feature\n  gwt open my-feature\n  gwt rm my-feature --force\n  gwt config ide\n  gwt config setup "yarn install" "yarn build"\n  gwt config teardown "docker compose down"',
   );
 
 program
   .command("add <branch>")
-  .description("Create a worktree, sync .env files, and install dependencies")
+  .description("Create a worktree, sync .env files, and run the setup hook")
   .option("--from <base>", "Base branch to create from (default: HEAD)")
   .action((branch: string, options: { from?: string }) =>
     commandAdd(branch, options.from),
@@ -34,7 +36,10 @@ program
 program
   .command("rm <branch>")
   .description("Remove a worktree")
-  .action(commandRm);
+  .option("--force", "Remove even with uncommitted/unpushed changes")
+  .action((branch: string, options: { force?: boolean }) =>
+    commandRm(branch, options),
+  );
 
 program.command("ls").description("List all worktrees").action(commandLs);
 
@@ -80,6 +85,20 @@ configCmd
     "Enable/disable the Claude Code branch statusline (on/off). Omit to show current value.",
   )
   .action((value: string | undefined) => commandConfigStatusline(value));
+
+configCmd
+  .command("setup [commands...]")
+  .description(
+    "Set post-create commands. 'auto' = install if package.json; 'none' = nothing. Omit to show current value.",
+  )
+  .action((commands: string[]) => commandConfigSetup(commands));
+
+configCmd
+  .command("teardown [commands...]")
+  .description(
+    "Set pre-remove commands run in the worktree. 'none' = clear. Omit to show current value.",
+  )
+  .action((commands: string[]) => commandConfigTeardown(commands));
 
 // Show help when called with no arguments
 if (process.argv.length <= 2) {
