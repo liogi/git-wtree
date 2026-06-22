@@ -11,13 +11,8 @@ import {
   hideFromGit,
 } from "../lib/git.js";
 import { writeVscodeTheme, writeClaudeStatusline } from "../lib/ideTheme.js";
-import { copyEnvFiles, copyLocalFiles } from "../lib/env.js";
-import {
-  installDeps,
-  detectPackageManager,
-  hasScript,
-  runScript,
-} from "../lib/packageManager.js";
+import { copyEnvFiles } from "../lib/env.js";
+import { resolveSetupCommands, runCommands } from "../lib/setup.js";
 import { readConfig } from "../lib/config.js";
 
 export async function commandAdd(branch: string, from?: string): Promise<void> {
@@ -72,25 +67,9 @@ export async function commandAdd(branch: string, from?: string): Promise<void> {
   log.step("Syncing .env files…");
   copyEnvFiles(root, worktreePath, config.scanDirs);
 
-  log.step("Syncing local files (*.local.*)…");
-  copyLocalFiles(root, worktreePath);
-
-  const pm = detectPackageManager(root);
-  log.step(`Installing dependencies with ${pm}…`);
-  try {
-    installDeps(worktreePath);
-  } catch (e) {
-    log.error((e as Error).message);
-    process.exit(1);
-  }
-
-  if (hasScript(worktreePath, "prepare")) {
-    log.step("Running prepare script…");
-    try {
-      runScript(worktreePath, "prepare");
-    } catch (e) {
-      log.warn(`prepare script failed: ${(e as Error).message}`);
-    }
+  const setupCommands = resolveSetupCommands(worktreePath, config);
+  if (setupCommands.length > 0) {
+    runCommands(worktreePath, setupCommands, "setup");
   }
 
   if (config.theme !== false) {

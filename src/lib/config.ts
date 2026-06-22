@@ -8,6 +8,8 @@ export interface WtreeConfig {
   scanDirs?: string[] | null;
   theme?: boolean;
   statusline?: boolean;
+  setup?: string[] | "auto";
+  teardown?: string[];
 }
 
 const CONFIG_DIR = path.join(os.homedir(), ".config", "git-wtree");
