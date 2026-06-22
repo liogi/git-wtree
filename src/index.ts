@@ -4,6 +4,8 @@ import { commandAdd } from "./commands/add.js";
 import { commandRm } from "./commands/rm.js";
 import { commandLs } from "./commands/ls.js";
 import { commandOpen } from "./commands/open.js";
+import { commandPath } from "./commands/path.js";
+import { commandShellInit } from "./commands/shellInit.js";
 import {
   commandConfigIde,
   commandConfigScanDirs,
@@ -22,7 +24,7 @@ program
   .version("0.1.6")
   .addHelpText(
     "after",
-    '\nAlias: gwt <command>\n\nExamples:\n  gwt add my-feature\n  gwt open my-feature\n  gwt rm my-feature --force\n  gwt config ide\n  gwt config setup "yarn install" "yarn build"\n  gwt config teardown "docker compose down"',
+    '\nAlias: gwt <command>\n\nExamples:\n  gwt add my-feature\n  gwt open my-feature\n  gwt switch my-feature   (needs: eval "$(gwt shell-init zsh)")\n  gwt rm my-feature --force\n  gwt config setup "yarn install" "yarn build"\n  gwt config teardown "docker compose down"',
   );
 
 program
@@ -47,6 +49,29 @@ program
   .command("open <branch>")
   .description("Open a worktree in your IDE")
   .action(commandOpen);
+
+program
+  .command("switch [query]")
+  .alias("sw")
+  .description("Switch (cd) to another worktree (requires the shell wrapper)")
+  .action(() => {
+    console.error(
+      '`gwt switch` needs the shell wrapper. Add this to your shell rc:\n  eval "$(gwt shell-init zsh)"   # or bash / fish\nThen restart your shell.',
+    );
+    process.exit(1);
+  });
+
+program
+  .command("path [query]")
+  .description(
+    "Print a matching worktree's path (used by `gwt switch` via the shell wrapper)",
+  )
+  .action((query: string | undefined) => commandPath(query));
+
+program
+  .command("shell-init [shell]")
+  .description("Print the shell function for `gwt switch` (zsh|bash|fish)")
+  .action((shell: string | undefined) => commandShellInit(shell));
 
 const configCmd = program
   .command("config")
