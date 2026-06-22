@@ -1,4 +1,3 @@
-import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
 
@@ -9,12 +8,6 @@ export function detectPackageManager(root: string): PackageManager {
   if (fs.existsSync(path.join(root, "pnpm-lock.yaml"))) return "pnpm";
   if (fs.existsSync(path.join(root, "yarn.lock"))) return "yarn";
   return "npm";
-}
-
-export function installDeps(root: string): void {
-  const pm = detectPackageManager(root);
-  const cmd = `${pm} install`;
-  execSync(cmd, { cwd: root, stdio: "inherit" });
 }
 
 export function hasScript(root: string, scriptName: string): boolean {
@@ -28,9 +21,4 @@ export function hasScript(root: string, scriptName: string): boolean {
   } catch {
     return false;
   }
-}
-
-export function runScript(cwd: string, scriptName: string): void {
-  const pm = detectPackageManager(cwd);
-  execSync(`${pm} run ${scriptName}`, { cwd, stdio: "inherit" });
 }

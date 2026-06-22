@@ -160,6 +160,35 @@ export function hideFromGit(worktreePath: string, relPath: string): void {
   }
 }
 
+// True if the worktree has uncommitted changes, untracked files, or commits not
+// pushed to its upstream. Used to guard against accidental data loss on remove.
+export function isWorktreeDirty(worktreePath: string): boolean {
+  const status = execSync("git status --porcelain", {
+    cwd: worktreePath,
+    encoding: "utf-8",
+  }).trim();
+  if (status.length > 0) return true;
+
+  try {
+    const upstream = execSync(
+      "git rev-parse --abbrev-ref --symbolic-full-name @{u}",
+      {
+        cwd: worktreePath,
+        encoding: "utf-8",
+        stdio: ["pipe", "pipe", "ignore"],
+      },
+    ).trim();
+    const ahead = execSync(`git rev-list --count ${upstream}..HEAD`, {
+      cwd: worktreePath,
+      encoding: "utf-8",
+    }).trim();
+    return ahead !== "0";
+  } catch {
+    // No upstream configured — uncommitted/untracked already checked above.
+    return false;
+  }
+}
+
 export function listWorktrees(): WorktreeEntry[] {
   const root = getRepoRoot();
   const output = execSync("git worktree list --porcelain", {
