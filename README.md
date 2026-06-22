@@ -77,11 +77,11 @@ Then:
 
 ```bash
 gwt switch my-feature   # cd to the worktree whose branch matches "my-feature"
-gwt switch              # no query → pick interactively (fzf if installed, else a numbered menu)
+gwt switch              # no query → arrow-key picker
 gwt sw my-feature       # alias
 ```
 
-`query` is a substring match on the branch name. If it matches exactly one worktree you go straight there; if it's ambiguous or omitted, you get a picker. (`gwt path [query]` is the underlying primitive the wrapper calls — it just prints the resolved path.)
+`query` is a substring match on the branch name. If it matches exactly one worktree you go straight there; if it's ambiguous or omitted, you get an arrow-key picker (same style as the rest of the prompts). (`gwt path [query]` is the underlying primitive the wrapper calls — it resolves the worktree and writes the path back to the wrapper.)
 
 ### `.env` syncing
 
