@@ -26,6 +26,8 @@ gwt <command>
 | `gwt rm <branch> [--force]`         | Remove a worktree (guards against unsaved changes)           |
 | `gwt ls`                            | List all worktrees                                           |
 | `gwt open <branch>`                 | Open a worktree in your IDE                                  |
+| `gwt switch [query]`                | `cd` to another worktree (needs the shell wrapper)           |
+| `gwt shell-init [shell]`            | Print the shell function enabling `gwt switch`               |
 | `gwt config`                        | Show current configuration                                   |
 | `gwt config ide`                    | Configure your IDE                                           |
 | `gwt config scan-dirs [dirs]`       | Set directories to scan for `.env` files                     |
@@ -61,6 +63,25 @@ To reconfigure your IDE at any time:
 ```bash
 gwt config ide
 ```
+
+### `gwt switch` — jump between worktrees
+
+`gwt switch [query]` changes your shell's directory to another worktree. Because a binary can't change its parent shell's working directory, this needs a small shell function. Add it to your shell rc once:
+
+```bash
+# ~/.zshrc or ~/.bashrc
+eval "$(gwt shell-init zsh)"   # or: bash | fish
+```
+
+Then:
+
+```bash
+gwt switch my-feature   # cd to the worktree whose branch matches "my-feature"
+gwt switch              # no query → pick interactively (fzf if installed, else a numbered menu)
+gwt sw my-feature       # alias
+```
+
+`query` is a substring match on the branch name. If it matches exactly one worktree you go straight there; if it's ambiguous or omitted, you get a picker. (`gwt path [query]` is the underlying primitive the wrapper calls — it just prints the resolved path.)
 
 ### `.env` syncing
 
