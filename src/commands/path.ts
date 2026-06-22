@@ -1,67 +1,14 @@
-import { execSync } from "child_process";
-import { createInterface } from "readline";
-import { listWorktrees, type WorktreeEntry } from "../lib/git.js";
+import fs from "fs";
+import { select, isCancel } from "@clack/prompts";
+import { listWorktrees } from "../lib/git.js";
 
-function fzfAvailable(): boolean {
-  try {
-    execSync("command -v fzf", { stdio: "ignore" });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-// fzf reads candidates on stdin, draws its UI on /dev/tty, prints the choice on
-// stdout — so it works even when our own stdout is captured by `$(...)`.
-function selectWithFzf(candidates: WorktreeEntry[]): string | null {
-  const lines = candidates.map((w) => `${w.branch}\t${w.path}`).join("\n");
-  try {
-    const out = execSync(
-      "fzf --with-nth=1 --delimiter='\\t' --prompt='worktree> '",
-      {
-        input: lines,
-        encoding: "utf-8",
-        stdio: ["pipe", "pipe", "inherit"],
-      },
-    ).trim();
-    return out ? (out.split("\t")[1] ?? null) : null;
-  } catch {
-    // non-zero exit means the user cancelled (Esc)
-    return null;
-  }
-}
-
-// Numbered fallback menu. UI and prompt go to stderr; only the path goes to stdout.
-async function selectWithMenu(
-  candidates: WorktreeEntry[],
-): Promise<string | null> {
-  if (!process.stdin.isTTY) {
-    process.stderr.write(
-      "Multiple worktrees match. Run in a terminal or pass a unique query.\n",
-    );
-    return null;
-  }
-  process.stderr.write("Select a worktree:\n");
-  candidates.forEach((w, i) => {
-    const main = w.isMain ? " (main)" : "";
-    process.stderr.write(`  ${i + 1}) ${w.branch}${main}  ${w.path}\n`);
-  });
-
-  const rl = createInterface({ input: process.stdin, output: process.stderr });
-  const answer = await new Promise<string>((resolve) =>
-    rl.question("> ", resolve),
-  );
-  rl.close();
-
-  const index = Number.parseInt(answer.trim(), 10) - 1;
-  if (Number.isNaN(index) || index < 0 || index >= candidates.length) {
-    process.stderr.write("Invalid selection.\n");
-    return null;
-  }
-  return candidates[index].path;
-}
-
-export async function commandPath(query?: string): Promise<void> {
+// Resolves a worktree (by branch substring, then an interactive picker if needed)
+// and emits its path. The shell wrapper passes --out so the picker UI can render
+// on the terminal while the chosen path is handed back through the file.
+export async function commandPath(
+  query?: string,
+  outFile?: string,
+): Promise<void> {
   const worktrees = listWorktrees();
   if (worktrees.length === 0) {
     process.stderr.write("No worktrees found.\n");
@@ -79,16 +26,33 @@ export async function commandPath(query?: string): Promise<void> {
       process.stderr.write(`No worktree matching '${query}'.\n`);
       process.exit(1);
     }
-    if (candidates.length === 1) {
-      process.stdout.write(candidates[0].path);
-      return;
-    }
   }
 
-  const selected = fzfAvailable()
-    ? selectWithFzf(candidates)
-    : await selectWithMenu(candidates);
+  let target: string;
+  if (candidates.length === 1) {
+    target = candidates[0].path;
+  } else {
+    if (!process.stdin.isTTY) {
+      process.stderr.write(
+        "Multiple worktrees match. Run in a terminal or pass a unique query.\n",
+      );
+      process.exit(1);
+    }
+    const choice = await select({
+      message: "Switch to worktree",
+      options: candidates.map((w) => ({
+        value: w.path,
+        label: `${w.branch}${w.isMain ? " (main)" : ""}`,
+        hint: w.path,
+      })),
+    });
+    if (isCancel(choice)) process.exit(1);
+    target = choice;
+  }
 
-  if (!selected) process.exit(1);
-  process.stdout.write(selected);
+  if (outFile) {
+    fs.writeFileSync(outFile, target);
+  } else {
+    process.stdout.write(target);
+  }
 }

@@ -64,9 +64,15 @@ program
 program
   .command("path [query]")
   .description(
-    "Print a matching worktree's path (used by `gwt switch` via the shell wrapper)",
+    "Resolve a worktree's path (used by `gwt switch` via the shell wrapper)",
   )
-  .action((query: string | undefined) => commandPath(query));
+  .option(
+    "--out <file>",
+    "Write the resolved path to this file instead of stdout",
+  )
+  .action((query: string | undefined, options: { out?: string }) =>
+    commandPath(query, options.out),
+  );
 
 program
   .command("shell-init [shell]")
