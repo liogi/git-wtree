@@ -69,12 +69,49 @@ export function commandConfigStatusline(value?: string): void {
   log.success(`statusline ${parsed ? "enabled" : "disabled"}`);
 }
 
+export function commandConfigSetup(values: string[]): void {
+  const config = readConfig();
+  if (values.length === 0) {
+    console.log(`setup: ${JSON.stringify(config.setup ?? "auto")}`);
+    return;
+  }
+  if (values.length === 1 && values[0] === "auto") {
+    updateConfig({ setup: "auto" });
+    log.success("setup reset to auto");
+    return;
+  }
+  if (values.length === 1 && values[0] === "none") {
+    updateConfig({ setup: [] });
+    log.success("setup disabled (no commands)");
+    return;
+  }
+  updateConfig({ setup: values });
+  log.success(`setup set to: ${values.join(" && ")}`);
+}
+
+export function commandConfigTeardown(values: string[]): void {
+  const config = readConfig();
+  if (values.length === 0) {
+    console.log(`teardown: ${JSON.stringify(config.teardown ?? [])}`);
+    return;
+  }
+  if (values.length === 1 && values[0] === "none") {
+    updateConfig({ teardown: [] });
+    log.success("teardown disabled (no commands)");
+    return;
+  }
+  updateConfig({ teardown: values });
+  log.success(`teardown set to: ${values.join(" && ")}`);
+}
+
 export function commandConfigShow(): void {
   const config = readConfig();
   const resolved = {
     ...config,
     theme: config.theme !== false,
     statusline: config.statusline !== false,
+    setup: config.setup ?? "auto",
+    teardown: config.teardown ?? [],
   };
   console.log(JSON.stringify(resolved, null, 2));
 }

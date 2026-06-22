@@ -5,9 +5,15 @@ import {
   removeWorktree,
   branchExists,
   deleteLocalBranch,
+  isWorktreeDirty,
 } from "../lib/git.js";
+import { readConfig } from "../lib/config.js";
+import { runCommands } from "../lib/setup.js";
 
-export async function commandRm(branch: string): Promise<void> {
+export async function commandRm(
+  branch: string,
+  options: { force?: boolean } = {},
+): Promise<void> {
   intro(`gwt rm ${branch}`);
 
   const worktreePath = getWorktreePath(branch);
@@ -19,6 +25,13 @@ export async function commandRm(branch: string): Promise<void> {
     process.exit(1);
   }
 
+  if (!options.force && isWorktreeDirty(worktreePath)) {
+    log.error(
+      `Worktree has uncommitted changes, untracked files, or unpushed commits.\nReview them, or re-run with --force to remove anyway.`,
+    );
+    process.exit(1);
+  }
+
   const confirmed = await confirm({
     message: `Remove worktree at ${worktreePath}?`,
   });
@@ -26,6 +39,15 @@ export async function commandRm(branch: string): Promise<void> {
   if (isCancel(confirmed) || !confirmed) {
     cancel("Cancelled");
     process.exit(0);
+  }
+
+  const config = readConfig();
+  if (config.teardown && config.teardown.length > 0) {
+    const ok = runCommands(worktreePath, config.teardown, "teardown");
+    if (!ok && !options.force) {
+      log.error("Teardown failed. Aborting removal (use --force to override).");
+      process.exit(1);
+    }
   }
 
   try {

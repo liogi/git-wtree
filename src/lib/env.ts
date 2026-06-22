@@ -24,8 +24,6 @@ const EXCLUDED_FILES = new Set([
   ".env.sample",
 ]);
 
-const LOCAL_FILE_PATTERN = /\.local\./;
-
 function scanDir(
   dir: string,
   results: string[],
@@ -103,14 +101,5 @@ export function copyEnvFiles(
     log.success(`Copied ${copied} .env file${copied !== 1 ? "s" : ""}`);
   } else {
     log.info("No .env files found to copy");
-  }
-}
-
-export function copyLocalFiles(sourceRoot: string, destRoot: string): void {
-  const files = findFiles(sourceRoot, (name) => LOCAL_FILE_PATTERN.test(name));
-  const copied = copyFiles(sourceRoot, destRoot, files);
-
-  if (copied > 0) {
-    log.success(`Copied ${copied} local file${copied !== 1 ? "s" : ""}`);
   }
 }
