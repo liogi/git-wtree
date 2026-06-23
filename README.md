@@ -20,22 +20,23 @@ gwt <command>
 
 ### Commands
 
-| Command                             | Description                                                  |
-| ----------------------------------- | ------------------------------------------------------------ |
-| `gwt add <branch> [--from <base>]`  | Create a worktree, sync `.env` files, and run the setup hook |
-| `gwt rm <branch> [--force]`         | Remove a worktree (guards against unsaved changes)           |
-| `gwt ls`                            | List all worktrees                                           |
-| `gwt open <branch>`                 | Open a worktree in your IDE                                  |
-| `gwt switch [query]`                | `cd` to another worktree (needs the shell wrapper)           |
-| `gwt shell-init [shell]`            | Print the shell function enabling `gwt switch`               |
-| `gwt config`                        | Show current configuration                                   |
-| `gwt config ide`                    | Configure your IDE                                           |
-| `gwt config scan-dirs [dirs]`       | Set directories to scan for `.env` files                     |
-| `gwt config setup [commands...]`    | Post-create commands (`auto` / `none` / custom)              |
-| `gwt config teardown [commands...]` | Pre-remove commands run in the worktree (`none` to clear)    |
-| `gwt config theme [on\|off]`        | Toggle per-worktree VS Code color + window title             |
-| `gwt config statusline [on\|off]`   | Toggle the Claude Code branch statusline                     |
-| `gwt help`                          | Show help                                                    |
+| Command                             | Description                                                   |
+| ----------------------------------- | ------------------------------------------------------------- |
+| `gwt add <branch> [--from <base>]`  | Create a worktree, sync `.env` files, and run the setup hook  |
+| `gwt pr <number>`                   | Create a worktree from a GitHub pull request                  |
+| `gwt rm [branch] [--force]`         | Remove a worktree (picker if omitted; guards unsaved changes) |
+| `gwt ls`                            | List all worktrees                                            |
+| `gwt open [branch]`                 | Open a worktree in your IDE (picker if omitted)               |
+| `gwt switch [query]`                | `cd` to another worktree (needs the shell wrapper)            |
+| `gwt shell-init [shell]`            | Print the shell function enabling `gwt switch`                |
+| `gwt config`                        | Show current configuration                                    |
+| `gwt config ide`                    | Configure your IDE                                            |
+| `gwt config scan-dirs [dirs]`       | Set directories to scan for `.env` files                      |
+| `gwt config setup [commands...]`    | Post-create commands (`auto` / `none` / custom)               |
+| `gwt config teardown [commands...]` | Pre-remove commands run in the worktree (`none` to clear)     |
+| `gwt config theme [on\|off]`        | Toggle per-worktree VS Code color + window title              |
+| `gwt config statusline [on\|off]`   | Toggle the Claude Code branch statusline                      |
+| `gwt help`                          | Show help                                                     |
 
 ### `gwt add <branch>`
 
@@ -50,13 +51,28 @@ gwt add my-feature --from production   # create from production
 gwt add codex/fix-bug                  # checkout existing branch, reset to remote
 ```
 
-### `gwt open <branch>`
+### `gwt pr <number>`
 
-Opens the worktree in your configured IDE. On first use, a wizard will prompt you to choose your IDE.
+Creates a worktree from a GitHub pull request (then runs the same `.env` sync, setup hook, and theming as `gwt add`). The worktree lives at `<repo>-pr-<number>`.
 
 ```bash
-gwt open my-feature
+gwt pr 1234   # specific PR
+gwt pr        # no number → pick from open PRs (arrow-key picker, requires gh)
 ```
+
+- If [`gh`](https://cli.github.com/) is installed, it runs `gh pr checkout` inside the worktree — you get the PR's real branch with push tracking (works for forks too), so you can push fixes back.
+- Otherwise it falls back to `git fetch origin pull/<number>/head` into a local `pr-<number>` branch (review only).
+
+### `gwt open [branch]`
+
+Opens a worktree in your configured IDE. On first use, a wizard will prompt you to choose your IDE.
+
+```bash
+gwt open my-feature   # substring match on branch or path
+gwt open              # no argument → arrow-key picker
+```
+
+Worktrees are resolved from `git worktree list` (the same source as `gwt ls`): the argument is matched as a substring of the branch or path, and you get a picker when it's ambiguous or omitted. The same resolution powers `gwt switch` and `gwt rm`, so a PR worktree (dir `repo-pr-<n>`, different branch) is found whether you pass its branch, `pr-<n>`, or pick it.
 
 To reconfigure your IDE at any time:
 

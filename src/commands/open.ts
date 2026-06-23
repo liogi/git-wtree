@@ -1,25 +1,11 @@
-import { intro, outro, log } from "@clack/prompts";
-import { getWorktreePath, worktreeExists } from "../lib/git.js";
+import { log } from "@clack/prompts";
+import { resolveWorktree } from "../lib/resolveWorktree.js";
 import { readConfig } from "../lib/config.js";
 import { runIdeWizard, openInIde } from "../lib/ide.js";
 
-export async function commandOpen(branch: string): Promise<void> {
-  intro(`gwt open ${branch}`);
-
-  let worktreePath: string;
-  try {
-    worktreePath = getWorktreePath(branch);
-  } catch (e) {
-    log.error((e as Error).message);
-    process.exit(1);
-  }
-
-  if (!worktreeExists(worktreePath)) {
-    log.error(
-      `No worktree found for branch '${branch}'\nRun: gwt add ${branch}`,
-    );
-    process.exit(1);
-  }
+export async function commandOpen(query?: string): Promise<void> {
+  const worktree = await resolveWorktree(query);
+  if (!worktree) process.exit(1);
 
   const config = readConfig();
   if (!config.ide) {
@@ -27,6 +13,6 @@ export async function commandOpen(branch: string): Promise<void> {
     await runIdeWizard();
   }
 
-  openInIde(worktreePath);
-  outro(`Opened ${worktreePath}`);
+  openInIde(worktree.path);
+  log.success(`Opened ${worktree.path}`);
 }
