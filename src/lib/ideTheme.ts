@@ -7,25 +7,13 @@ interface PaletteEntry {
   fg: string;
 }
 
-// Curated palette: distinct, readable title bars. Foreground picked for contrast.
-const PALETTE: PaletteEntry[] = [
-  { bg: "#1e6f3e", fg: "#ffffff" }, // green
-  { bg: "#0b6b8f", fg: "#ffffff" }, // teal-blue
-  { bg: "#7b2d8e", fg: "#ffffff" }, // purple
-  { bg: "#b23a48", fg: "#ffffff" }, // red
-  { bg: "#c2620f", fg: "#ffffff" }, // orange
-  { bg: "#8a6d00", fg: "#ffffff" }, // gold
-  { bg: "#2d4f9e", fg: "#ffffff" }, // indigo
-  { bg: "#0f7a6c", fg: "#ffffff" }, // emerald
-  { bg: "#9e2d6f", fg: "#ffffff" }, // magenta
-  { bg: "#4a5a1f", fg: "#ffffff" }, // olive
-  { bg: "#3a3f8f", fg: "#ffffff" }, // royal
-  { bg: "#a23e0f", fg: "#ffffff" }, // rust
-  { bg: "#155e75", fg: "#ffffff" }, // cyan-dark
-  { bg: "#6d28a0", fg: "#ffffff" }, // violet
-];
-
 const FORMATTING = { tabSize: 2, insertSpaces: true };
+
+// Fixed saturation/lightness keep every generated color dark enough for white
+// text to stay readable, while the hue varies across the full 360° wheel.
+const SATURATION = 0.6;
+// 0.30 keeps white-on-color ≥ 4.5:1 (WCAG AA) across the whole hue wheel.
+const LIGHTNESS = 0.3;
 
 function hashBranch(branch: string): number {
   let h = 0;
@@ -35,8 +23,32 @@ function hashBranch(branch: string): number {
   return h;
 }
 
+function hslToHex(h: number, s: number, l: number): string {
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const hp = h / 60;
+  const x = c * (1 - Math.abs((hp % 2) - 1));
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  if (hp < 1) [r, g, b] = [c, x, 0];
+  else if (hp < 2) [r, g, b] = [x, c, 0];
+  else if (hp < 3) [r, g, b] = [0, c, x];
+  else if (hp < 4) [r, g, b] = [0, x, c];
+  else if (hp < 5) [r, g, b] = [x, 0, c];
+  else [r, g, b] = [c, 0, x];
+  const m = l - c / 2;
+  const toHex = (v: number) =>
+    Math.round((v + m) * 255)
+      .toString(16)
+      .padStart(2, "0");
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+// Deterministic per-branch color: the hue is derived from a hash of the branch
+// name (full 360° range → ~no collisions), with fixed S/L so white text reads.
 export function pickColor(branch: string): PaletteEntry {
-  return PALETTE[hashBranch(branch) % PALETTE.length];
+  const hue = hashBranch(branch) % 360;
+  return { bg: hslToHex(hue, SATURATION, LIGHTNESS), fg: "#ffffff" };
 }
 
 function readJsonc(filePath: string): {
