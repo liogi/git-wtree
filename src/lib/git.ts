@@ -160,6 +160,94 @@ export function hideFromGit(worktreePath: string, relPath: string): void {
   }
 }
 
+export function ghAvailable(): boolean {
+  try {
+    execSync("command -v gh", { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export interface OpenPr {
+  number: number;
+  title: string;
+  branch: string;
+  author: string;
+}
+
+// Lists open PRs via gh (requires gh). Used to power the `gwt pr` picker.
+export function listOpenPrs(root: string): OpenPr[] {
+  const out = execSync(
+    "gh pr list --json number,title,headRefName,author --limit 50",
+    { cwd: root, encoding: "utf-8" },
+  );
+  const raw = JSON.parse(out) as Array<{
+    number: number;
+    title: string;
+    headRefName: string;
+    author: { login?: string } | null;
+  }>;
+  return raw.map((p) => ({
+    number: p.number,
+    title: p.title,
+    branch: p.headRefName,
+    author: p.author?.login ?? "?",
+  }));
+}
+
+// Creates a worktree from a PR using gh: a detached worktree, then `gh pr checkout`
+// inside it so gh handles the real branch, fork remotes, and push tracking.
+// Returns the checked-out branch name.
+export function createWorktreeFromPrGh(
+  root: string,
+  prNumber: string,
+  worktreePath: string,
+): string {
+  execSync(`git worktree add --detach "${worktreePath}"`, {
+    cwd: root,
+    stdio: "inherit",
+  });
+  try {
+    execSync(`gh pr checkout ${prNumber}`, {
+      cwd: worktreePath,
+      stdio: "inherit",
+    });
+  } catch (e) {
+    try {
+      execSync(`git worktree remove "${worktreePath}" --force`, {
+        cwd: root,
+        stdio: "ignore",
+      });
+    } catch {
+      // leave it for manual cleanup if removal also fails
+    }
+    throw new Error(`gh pr checkout failed: ${(e as Error).message}`);
+  }
+  return execSync("git rev-parse --abbrev-ref HEAD", {
+    cwd: worktreePath,
+    encoding: "utf-8",
+  }).trim();
+}
+
+// Fallback without gh: fetch the PR head into a local pr-<n> branch (review only).
+export function createWorktreeFromPrFetch(
+  root: string,
+  prNumber: string,
+  worktreePath: string,
+): string {
+  const branch = `pr-${prNumber}`;
+  execSync(`git fetch origin "pull/${prNumber}/head:${branch}"`, {
+    cwd: root,
+    stdio: "inherit",
+  });
+  execSync(`git worktree add "${worktreePath}" "${branch}"`, {
+    cwd: root,
+    stdio: "inherit",
+  });
+  return branch;
+}
+
 // True if the worktree has uncommitted changes, untracked files, or commits not
 // pushed to its upstream. Used to guard against accidental data loss on remove.
 export function isWorktreeDirty(worktreePath: string): boolean {
