@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { readFileSync } from "fs";
 import { Command } from "commander";
 import { commandAdd } from "./commands/add.js";
 import { commandRm } from "./commands/rm.js";
@@ -17,12 +18,16 @@ import {
   commandConfigTeardown,
 } from "./commands/config.js";
 
+const pkg = JSON.parse(
+  readFileSync(new URL("../package.json", import.meta.url), "utf-8"),
+) as { version: string };
+
 const program = new Command();
 
 program
   .name("gitwtree")
   .description("Git worktree manager with .env syncing and IDE integration")
-  .version("0.1.6")
+  .version(pkg.version)
   .addHelpText(
     "after",
     '\nAlias: gwt <command>\n\nExamples:\n  gwt add my-feature\n  gwt pr 1234\n  gwt open my-feature\n  gwt switch my-feature   (needs: eval "$(gwt shell-init zsh)")\n  gwt rm my-feature --force\n  gwt config setup "yarn install" "yarn build"',
