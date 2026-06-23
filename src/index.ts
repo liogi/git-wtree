@@ -6,6 +6,7 @@ import { commandLs } from "./commands/ls.js";
 import { commandOpen } from "./commands/open.js";
 import { commandPath } from "./commands/path.js";
 import { commandShellInit } from "./commands/shellInit.js";
+import { commandPr } from "./commands/pr.js";
 import {
   commandConfigIde,
   commandConfigScanDirs,
@@ -24,7 +25,7 @@ program
   .version("0.1.6")
   .addHelpText(
     "after",
-    '\nAlias: gwt <command>\n\nExamples:\n  gwt add my-feature\n  gwt open my-feature\n  gwt switch my-feature   (needs: eval "$(gwt shell-init zsh)")\n  gwt rm my-feature --force\n  gwt config setup "yarn install" "yarn build"\n  gwt config teardown "docker compose down"',
+    '\nAlias: gwt <command>\n\nExamples:\n  gwt add my-feature\n  gwt pr 1234\n  gwt open my-feature\n  gwt switch my-feature   (needs: eval "$(gwt shell-init zsh)")\n  gwt rm my-feature --force\n  gwt config setup "yarn install" "yarn build"',
   );
 
 program
@@ -36,19 +37,24 @@ program
   );
 
 program
-  .command("rm <branch>")
-  .description("Remove a worktree")
+  .command("rm [branch]")
+  .description("Remove a worktree (omit to pick one)")
   .option("--force", "Remove even with uncommitted/unpushed changes")
-  .action((branch: string, options: { force?: boolean }) =>
+  .action((branch: string | undefined, options: { force?: boolean }) =>
     commandRm(branch, options),
   );
+
+program
+  .command("pr [number]")
+  .description("Create a worktree from a GitHub PR (omit number to pick one)")
+  .action((number: string | undefined) => commandPr(number));
 
 program.command("ls").description("List all worktrees").action(commandLs);
 
 program
-  .command("open <branch>")
-  .description("Open a worktree in your IDE")
-  .action(commandOpen);
+  .command("open [branch]")
+  .description("Open a worktree in your IDE (omit to pick one)")
+  .action((branch: string | undefined) => commandOpen(branch));
 
 program
   .command("switch [query]")

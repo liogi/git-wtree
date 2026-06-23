@@ -1,29 +1,29 @@
 import { intro, outro, confirm, log, isCancel, cancel } from "@clack/prompts";
 import {
-  getWorktreePath,
-  worktreeExists,
   removeWorktree,
   branchExists,
   deleteLocalBranch,
   isWorktreeDirty,
 } from "../lib/git.js";
+import { resolveWorktree } from "../lib/resolveWorktree.js";
 import { readConfig } from "../lib/config.js";
 import { runCommands } from "../lib/setup.js";
 
 export async function commandRm(
-  branch: string,
+  query?: string,
   options: { force?: boolean } = {},
 ): Promise<void> {
-  intro(`gwt rm ${branch}`);
+  const worktree = await resolveWorktree(query);
+  if (!worktree) process.exit(1);
 
-  const worktreePath = getWorktreePath(branch);
-
-  if (!worktreeExists(worktreePath)) {
-    log.error(
-      `No worktree found for branch '${branch}'\nExpected at: ${worktreePath}`,
-    );
+  if (worktree.isMain) {
+    log.error("Cannot remove the main worktree.");
     process.exit(1);
   }
+
+  const worktreePath = worktree.path;
+  const actualBranch = worktree.branch;
+  intro(`gwt rm ${actualBranch}`);
 
   if (!options.force && isWorktreeDirty(worktreePath)) {
     log.error(
@@ -57,20 +57,20 @@ export async function commandRm(
     process.exit(1);
   }
 
-  if (branchExists(branch)) {
+  if (branchExists(actualBranch)) {
     const deleteBranch = await confirm({
-      message: `Also delete local branch '${branch}'?`,
+      message: `Also delete local branch '${actualBranch}'?`,
     });
 
     if (!isCancel(deleteBranch) && deleteBranch) {
       try {
-        deleteLocalBranch(branch);
-        log.success(`Local branch '${branch}' deleted`);
+        deleteLocalBranch(actualBranch);
+        log.success(`Local branch '${actualBranch}' deleted`);
       } catch (e) {
         log.warn(`Could not delete branch: ${(e as Error).message}`);
       }
     }
   }
 
-  outro(`Worktree '${branch}' removed`);
+  outro(`Worktree '${actualBranch}' removed`);
 }
