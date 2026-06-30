@@ -7,8 +7,9 @@ import { listWorktrees, type WorktreeEntry } from "./git.js";
 // Returns null (after writing a reason to stderr) when nothing usable is chosen.
 export async function resolveWorktree(
   query?: string,
+  pool?: WorktreeEntry[],
 ): Promise<WorktreeEntry | null> {
-  const worktrees = listWorktrees();
+  const worktrees = pool ?? listWorktrees();
   if (worktrees.length === 0) {
     process.stderr.write("No worktrees found.\n");
     return null;
