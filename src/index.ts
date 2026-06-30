@@ -8,6 +8,7 @@ import { commandOpen } from "./commands/open.js";
 import { commandPath } from "./commands/path.js";
 import { commandShellInit } from "./commands/shellInit.js";
 import { commandPr } from "./commands/pr.js";
+import { commandSyncEnv } from "./commands/syncEnv.js";
 import {
   commandConfigIde,
   commandConfigScanDirs,
@@ -30,7 +31,7 @@ program
   .version(pkg.version)
   .addHelpText(
     "after",
-    '\nAlias: gwt <command>\n\nExamples:\n  gwt add my-feature\n  gwt pr 1234\n  gwt open my-feature\n  gwt switch my-feature   (needs: eval "$(gwt shell-init zsh)")\n  gwt rm my-feature --force\n  gwt config setup "yarn install" "yarn build"',
+    '\nAlias: gwt <command>\n\nExamples:\n  gwt add my-feature\n  gwt pr 1234\n  gwt open my-feature\n  gwt switch my-feature   (needs: eval "$(gwt shell-init zsh)")\n  gwt rm my-feature --force\n  gwt sync-env --all --apply\n  gwt config setup "yarn install" "yarn build"',
   );
 
 program
@@ -89,6 +90,18 @@ program
   .command("shell-init [shell]")
   .description("Print the shell function for `gwt switch` (zsh|bash|fish)")
   .action((shell: string | undefined) => commandShellInit(shell));
+
+program
+  .command("sync-env [query]")
+  .description(
+    "Re-copy .env files from the main worktree (dry-run unless --apply)",
+  )
+  .option("--apply", "Actually copy the files (default is a dry run)")
+  .option("--all", "Sync every secondary worktree instead of picking one")
+  .action(
+    (query: string | undefined, options: { apply?: boolean; all?: boolean }) =>
+      commandSyncEnv(query, options),
+  );
 
 const configCmd = program
   .command("config")

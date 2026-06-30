@@ -308,3 +308,9 @@ export function listWorktrees(): WorktreeEntry[] {
 
   return entries;
 }
+
+// The main working tree. `git worktree list` always lists it first, so this is
+// reliable from any worktree (unlike the `isMain` flag, which is relative to cwd).
+export function getMainWorktree(): WorktreeEntry | null {
+  return listWorktrees()[0] ?? null;
+}
