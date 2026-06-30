@@ -1,7 +1,15 @@
 // zsh / bash function. `gwt switch` lets the binary render its picker on the
 // terminal and hands the chosen path back through a temp file, then cd's into it
 // (a binary can't change the parent shell's cwd on its own).
-const POSIX = `gwt() {
+//
+// The leading `unalias` clears oh-my-zsh's git-plugin aliases (gwt → git worktree)
+// so the function can define cleanly and win over them; harmless otherwise. The
+// function body is wrapped in an inner `eval` so it is parsed only AFTER the
+// unalias runs — zsh expands aliases at parse time, and a single outer eval would
+// parse the whole block (alias still active) before the unalias executes.
+// (Body uses only double quotes, so single-quoting it here is safe.)
+const POSIX = `unalias gwt gwta gwtls gwtmv gwtrm 2>/dev/null
+eval 'gwt() {
   case "$1" in
     switch|sw)
       local _gwt_out _gwt_dir
@@ -15,7 +23,7 @@ const POSIX = `gwt() {
       command gitwtree "$@"
       ;;
   esac
-}`;
+}'`;
 
 const FISH = `function gwt
   if test "$argv[1]" = switch -o "$argv[1]" = sw
