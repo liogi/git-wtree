@@ -24,6 +24,10 @@ const EXCLUDED_FILES = new Set([
   ".env.sample",
 ]);
 
+function isEnvFile(name: string): boolean {
+  return ENV_PATTERN.test(name) && !EXCLUDED_FILES.has(name);
+}
+
 function scanDir(
   dir: string,
   results: string[],
@@ -66,20 +70,45 @@ function findFiles(
   return files;
 }
 
-function copyFiles(
+export type EnvSyncStatus = "new" | "overwrite" | "skipped";
+
+export interface EnvSyncEntry {
+  relPath: string;
+  status: EnvSyncStatus;
+}
+
+// Builds the list of .env* files to copy from source to dest, classifying each:
+// "overwrite" (dest already has the file), "new" (absent), or "skipped" (the
+// file's parent directory doesn't exist in the destination worktree).
+export function planEnvSync(
   sourceRoot: string,
   destRoot: string,
-  files: string[],
+  scanDirs?: string[] | null,
+): EnvSyncEntry[] {
+  const files = findFiles(sourceRoot, isEnvFile, scanDirs);
+  return files.map((src) => {
+    const relPath = path.relative(sourceRoot, src);
+    const dest = path.join(destRoot, relPath);
+    if (!fs.existsSync(path.dirname(dest))) {
+      return { relPath, status: "skipped" };
+    }
+    return { relPath, status: fs.existsSync(dest) ? "overwrite" : "new" };
+  });
+}
+
+// Applies a plan, copying every non-skipped entry. Returns the number copied.
+export function applyEnvSync(
+  sourceRoot: string,
+  destRoot: string,
+  plan: EnvSyncEntry[],
 ): number {
   let copied = 0;
-  for (const src of files) {
-    const relative = path.relative(sourceRoot, src);
-    const dest = path.join(destRoot, relative);
-    const destDir = path.dirname(dest);
-
-    if (!fs.existsSync(destDir)) continue;
-
-    fs.copyFileSync(src, dest);
+  for (const entry of plan) {
+    if (entry.status === "skipped") continue;
+    fs.copyFileSync(
+      path.join(sourceRoot, entry.relPath),
+      path.join(destRoot, entry.relPath),
+    );
     copied++;
   }
   return copied;
@@ -90,12 +119,8 @@ export function copyEnvFiles(
   destRoot: string,
   scanDirs?: string[] | null,
 ): void {
-  const files = findFiles(
-    sourceRoot,
-    (name) => ENV_PATTERN.test(name) && !EXCLUDED_FILES.has(name),
-    scanDirs,
-  );
-  const copied = copyFiles(sourceRoot, destRoot, files);
+  const plan = planEnvSync(sourceRoot, destRoot, scanDirs);
+  const copied = applyEnvSync(sourceRoot, destRoot, plan);
 
   if (copied > 0) {
     log.success(`Copied ${copied} .env file${copied !== 1 ? "s" : ""}`);

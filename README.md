@@ -29,6 +29,7 @@ gwt <command>
 | `gwt open [branch]`                 | Open a worktree in your IDE (picker if omitted)               |
 | `gwt switch [query]`                | `cd` to another worktree (needs the shell wrapper)            |
 | `gwt shell-init [shell]`            | Print the shell function enabling `gwt switch`                |
+| `gwt sync-env [query] [--apply]`    | Re-copy `.env` from main into a worktree (`--all` for every)  |
 | `gwt config`                        | Show current configuration                                    |
 | `gwt config ide`                    | Configure your IDE                                            |
 | `gwt config scan-dirs [dirs]`       | Set directories to scan for `.env` files                      |
@@ -113,6 +114,20 @@ To reset back to auto scan:
 
 ```bash
 gwt config scan-dirs --reset
+```
+
+#### Re-syncing after the fact
+
+`gwt add` only copies `.env` files at creation time. When you refresh them on your main checkout (e.g. after pulling a new database), `gwt sync-env` re-copies them into existing worktrees. The **main worktree is always the source** (detected automatically, so it works from any worktree); it's never a target.
+
+It is a **dry run by default** — it lists, per worktree, which files would be copied and which would **overwrite** an existing one — and only writes with `--apply`:
+
+```bash
+gwt sync-env                  # pick a worktree, preview the changes
+gwt sync-env my-feature       # preview for the worktree matching "my-feature"
+gwt sync-env my-feature --apply   # actually copy into that worktree
+gwt sync-env --all            # preview across every secondary worktree
+gwt sync-env --all --apply    # copy into all of them
 ```
 
 ### Setup & teardown hooks
