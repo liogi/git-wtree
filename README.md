@@ -18,6 +18,19 @@ gitwtree <command>
 gwt <command>
 ```
 
+## Shell integration (recommended)
+
+Add this once to your shell rc — it enables `gwt switch` (jumping between worktrees) and, on zsh + oh-my-zsh, frees the `gwt` name from the git plugin's alias:
+
+```bash
+# ~/.zshrc (after sourcing oh-my-zsh) — or ~/.bashrc / config.fish
+eval "$(gitwtree shell-init zsh)"   # or: bash | fish
+```
+
+Then restart your shell (or `source ~/.zshrc`).
+
+> **Why `gitwtree` and not `gwt` here?** oh-my-zsh's git plugin aliases `gwt` (and `gwta`, `gwtls`, …) to `git worktree`, which shadows this CLI. `gitwtree` is never aliased, so the bootstrap always works; the snippet it prints clears those aliases and defines a `gwt` function that wins. If you skip this step and `gwt` runs `git worktree`, that alias is why — run `gitwtree` directly, or add the integration above.
+
 ### Commands
 
 | Command                             | Description                                                   |
