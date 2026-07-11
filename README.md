@@ -207,6 +207,7 @@ VS Code, Cursor, Zed, WebStorm, IntelliJ IDEA, PyCharm, GoLand, Vim, Neovim, Sub
 
 - Node.js >= 18
 - Git >= 2.5
+- `gitwtree` on your `PATH`. `npm install -g` handles this normally. If you use a **lazy-loaded nvm** (or similar), make sure your global npm bin directory is exported on shell startup — otherwise `gitwtree`/`gwt` won't resolve in a new shell. git-wtree assumes it's runnable; it deliberately doesn't touch your `PATH`.
 
 ## License
 
