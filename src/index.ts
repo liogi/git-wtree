@@ -31,7 +31,7 @@ program
   .version(pkg.version)
   .addHelpText(
     "after",
-    '\nAlias: gwt <command>\n\nExamples:\n  gwt add my-feature\n  gwt pr 1234\n  gwt open my-feature\n  gwt switch my-feature   (needs: eval "$(gwt shell-init zsh)")\n  gwt rm my-feature --force\n  gwt sync-env --all --apply\n  gwt config setup "yarn install" "yarn build"',
+    '\nAlias: gwt <command>\n\nExamples:\n  gwt add my-feature\n  gwt pr 1234\n  gwt open my-feature\n  gwt switch my-feature   (needs: gitwtree shell-init --install)\n  gwt rm my-feature --force\n  gwt sync-env --all --apply\n  gwt config setup "yarn install" "yarn build"',
   );
 
 program
@@ -65,10 +65,12 @@ program
 program
   .command("switch [query]")
   .alias("sw")
-  .description("Switch (cd) to another worktree (requires the shell wrapper)")
+  .description(
+    "Switch (cd) to another worktree (requires the shell integration)",
+  )
   .action(() => {
     console.error(
-      '`gwt switch` needs the shell wrapper. Add this to your shell rc:\n  eval "$(gwt shell-init zsh)"   # or bash / fish\nThen restart your shell.',
+      "`gwt switch` needs the shell integration. Run:\n  gitwtree shell-init --install\nThen open a new terminal.",
     );
     process.exit(1);
   });
@@ -88,8 +90,18 @@ program
 
 program
   .command("shell-init [shell]")
-  .description("Print the shell function for `gwt switch` (zsh|bash|fish)")
-  .action((shell: string | undefined) => commandShellInit(shell));
+  .description(
+    "Print — or --install — the gwt shell integration (zsh|bash|fish)",
+  )
+  .option("--install", "Write the integration block into your shell rc")
+  .option("--uninstall", "Remove the integration block from your shell rc")
+  .option("--rc <path>", "Target this rc file instead of the shell default")
+  .action(
+    (
+      shell: string | undefined,
+      options: { install?: boolean; uninstall?: boolean; rc?: string },
+    ) => commandShellInit(shell, options),
+  );
 
 program
   .command("sync-env [query]")

@@ -20,16 +20,23 @@ gwt <command>
 
 ## Shell integration (recommended)
 
-Add this once to your shell rc — it enables `gwt switch` (jumping between worktrees) and, on zsh + oh-my-zsh, frees the `gwt` name from the git plugin's alias:
+Run this once — it enables `gwt switch` (jumping between worktrees) and, on zsh + oh-my-zsh, frees the `gwt` name from the git plugin's alias:
 
 ```bash
-# ~/.zshrc (after sourcing oh-my-zsh) — or ~/.bashrc / config.fish
-eval "$(gitwtree shell-init zsh)"   # or: bash | fish
+gitwtree shell-init --install
 ```
 
-Then restart your shell (or `source ~/.zshrc`).
+It detects your shell, writes a small block to your rc (`~/.zshrc`, `~/.bashrc`, or `~/.config/fish/config.fish`), and is idempotent — re-run it any time to update or repair the block. Then **open a new terminal**.
 
-> **Why `gitwtree` and not `gwt` here?** oh-my-zsh's git plugin aliases `gwt` (and `gwta`, `gwtls`, …) to `git worktree`, which shadows this CLI. `gitwtree` is never aliased, so the bootstrap always works; the snippet it prints clears those aliases and defines a `gwt` function that wins. If you skip this step and `gwt` runs `git worktree`, that alias is why — run `gitwtree` directly, or add the integration above.
+> **Why `gitwtree` and not `gwt`?** oh-my-zsh's git plugin aliases `gwt` (and `gwta`, `gwtls`, …) to `git worktree`, which shadows this CLI. `gitwtree` is never aliased, so it always works; the block it installs clears those aliases and defines a `gwt` function that wins. If `gwt` runs `git worktree`, you haven't run the integration yet — run `gitwtree shell-init --install`, or use `gitwtree` directly.
+
+**Manual alternative.** If you'd rather not let a command edit your rc, append the block yourself (put it **after** any PATH setup, e.g. nvm/fnm, so `gitwtree` resolves) and open a new terminal:
+
+```bash
+gitwtree shell-init zsh >> ~/.zshrc   # or: bash | fish
+```
+
+Both write a _static_ block (no `gitwtree` call at shell startup), so it's robust regardless of where your PATH is configured. To remove it later: `gitwtree shell-init --uninstall`.
 
 ### Commands
 
@@ -40,8 +47,8 @@ Then restart your shell (or `source ~/.zshrc`).
 | `gwt rm [branch] [--force]`         | Remove a worktree (picker if omitted; guards unsaved changes) |
 | `gwt ls`                            | List all worktrees                                            |
 | `gwt open [branch]`                 | Open a worktree in your IDE (picker if omitted)               |
-| `gwt switch [query]`                | `cd` to another worktree (needs the shell wrapper)            |
-| `gwt shell-init [shell]`            | Print the shell function enabling `gwt switch`                |
+| `gwt switch [query]`                | `cd` to another worktree (needs the shell integration)        |
+| `gwt shell-init [--install]`        | Install (or print) the shell integration; `--uninstall` too   |
 | `gwt sync-env [query] [--apply]`    | Re-copy `.env` from main into a worktree (`--all` for every)  |
 | `gwt config`                        | Show current configuration                                    |
 | `gwt config ide`                    | Configure your IDE                                            |
@@ -96,14 +103,7 @@ gwt config ide
 
 ### `gwt switch` — jump between worktrees
 
-`gwt switch [query]` changes your shell's directory to another worktree. Because a binary can't change its parent shell's working directory, this needs a small shell function. Add it to your shell rc once:
-
-```bash
-# ~/.zshrc or ~/.bashrc
-eval "$(gwt shell-init zsh)"   # or: bash | fish
-```
-
-Then:
+`gwt switch [query]` changes your shell's directory to another worktree. Because a binary can't change its parent shell's working directory, this needs the shell function installed by [Shell integration](#shell-integration-recommended) (`gitwtree shell-init --install`). Once that's in place:
 
 ```bash
 gwt switch my-feature   # cd to the worktree whose branch matches "my-feature"
