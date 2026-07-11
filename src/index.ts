@@ -7,6 +7,7 @@ import { commandLs } from "./commands/ls.js";
 import { commandOpen } from "./commands/open.js";
 import { commandPath } from "./commands/path.js";
 import { commandShellInit } from "./commands/shellInit.js";
+import { commandDoctor } from "./commands/doctor.js";
 import { commandPr } from "./commands/pr.js";
 import { commandSyncEnv } from "./commands/syncEnv.js";
 import {
@@ -114,6 +115,11 @@ program
     (query: string | undefined, options: { apply?: boolean; all?: boolean }) =>
       commandSyncEnv(query, options),
   );
+
+program
+  .command("doctor")
+  .description("Diagnose the git-wtree install (integration, versions)")
+  .action(commandDoctor);
 
 const configCmd = program
   .command("config")
