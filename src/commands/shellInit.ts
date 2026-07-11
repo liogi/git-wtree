@@ -1,17 +1,14 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
-
-const VERSION = ((): string => {
-  try {
-    const pkg = JSON.parse(
-      fs.readFileSync(new URL("../../package.json", import.meta.url), "utf-8"),
-    ) as { version: string };
-    return pkg.version;
-  } catch {
-    return "0";
-  }
-})();
+import {
+  BEGIN,
+  END,
+  VERSION,
+  detectShell,
+  rcPathFor,
+  type Shell,
+} from "../lib/shellIntegration.js";
 
 // zsh / bash function. `gwt switch` lets the binary render its picker on the
 // terminal and hands the chosen path back through a temp file, then cd's into it
@@ -53,30 +50,8 @@ const FISH = `function gwt
   end
 end`;
 
-type Shell = "zsh" | "bash" | "fish";
-
-const BEGIN = "# >>> git-wtree >>>";
-const END = "# <<< git-wtree <<<";
-
-function detectShell(explicit?: string): Shell {
-  const raw = (
-    explicit ?? path.basename(process.env.SHELL ?? "zsh")
-  ).toLowerCase();
-  if (raw.includes("fish")) return "fish";
-  if (raw.includes("bash")) return "bash";
-  return "zsh";
-}
-
 function snippetFor(shell: Shell): string {
   return shell === "fish" ? FISH : POSIX;
-}
-
-function rcPathFor(shell: Shell): string {
-  const home = os.homedir();
-  if (shell === "fish")
-    return path.join(home, ".config", "fish", "config.fish");
-  if (shell === "bash") return path.join(home, ".bashrc");
-  return path.join(home, ".zshrc");
 }
 
 function buildBlock(shell: Shell): string {

@@ -49,6 +49,7 @@ Both write a _static_ block (no `gitwtree` call at shell startup), so it's robus
 | `gwt open [branch]`                 | Open a worktree in your IDE (picker if omitted)               |
 | `gwt switch [query]`                | `cd` to another worktree (needs the shell integration)        |
 | `gwt shell-init [--install]`        | Install (or print) the shell integration; `--uninstall` too   |
+| `gwt doctor`                        | Diagnose the install (integration present + version, git)     |
 | `gwt sync-env [query] [--apply]`    | Re-copy `.env` from main into a worktree (`--all` for every)  |
 | `gwt config`                        | Show current configuration                                    |
 | `gwt config ide`                    | Configure your IDE                                            |
@@ -112,6 +113,16 @@ gwt sw my-feature       # alias
 ```
 
 `query` is a substring match on the branch name. If it matches exactly one worktree you go straight there; if it's ambiguous or omitted, you get an arrow-key picker (same style as the rest of the prompts). (`gwt path [query]` is the underlying primitive the wrapper calls — it resolves the worktree and writes the path back to the wrapper.)
+
+### `gwt doctor`
+
+Checks the install: `git` availability, the `gitwtree` version, and whether the shell-integration block is present in your rc (and whether its version matches — if not, it tells you to re-run `gitwtree shell-init --install`).
+
+```bash
+gwt doctor
+```
+
+One thing it **can't** check: a binary can't inspect the parent shell, so it can't tell whether `gwt` currently resolves to the function or to oh-my-zsh's alias. Run `type gwt` yourself — `"function"` is good; `"alias"` means the integration isn't active in this shell.
 
 ### `.env` syncing
 
