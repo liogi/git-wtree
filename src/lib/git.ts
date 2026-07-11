@@ -12,6 +12,9 @@ export function getRepoRoot(): string {
   try {
     return execSync("git rev-parse --show-toplevel", {
       encoding: "utf-8",
+      // Silence git's own "fatal: not a git repository" on stderr; we surface a
+      // clean message instead.
+      stdio: ["ignore", "pipe", "ignore"],
     }).trim();
   } catch {
     throw new Error("Not inside a git repository");
