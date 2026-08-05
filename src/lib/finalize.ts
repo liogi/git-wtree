@@ -1,7 +1,7 @@
 import { log } from "@clack/prompts";
 import { copyEnvFiles } from "./env.js";
 import { resolveSetupCommands, runCommands } from "./setup.js";
-import { writeVscodeTheme, writeClaudeStatusline } from "./ideTheme.js";
+import { applyWorktreeTheme, writeClaudeStatusline } from "./ideTheme.js";
 import { hideFromGit } from "./git.js";
 import { readConfig } from "./config.js";
 
@@ -25,8 +25,7 @@ export function finalizeWorktree(
   if (config.theme !== false) {
     log.step("Applying worktree theme…");
     try {
-      writeVscodeTheme(worktreePath, branch);
-      hideFromGit(worktreePath, ".vscode/settings.json");
+      applyWorktreeTheme(worktreePath, branch);
     } catch (e) {
       log.warn(`Could not apply theme: ${(e as Error).message}`);
     }
