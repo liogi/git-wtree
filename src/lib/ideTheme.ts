@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { parse, modify, applyEdits } from "jsonc-parser";
+import { hideFromGit } from "./git.js";
 
 interface PaletteEntry {
   bg: string;
@@ -66,7 +67,7 @@ function readJsonc(filePath: string): {
 
 // Writes title bar / activity bar colors and a worktree-aware window title into
 // the worktree's .vscode/settings.json, preserving any existing settings & comments.
-export function writeVscodeTheme(worktreePath: string, branch: string): void {
+function writeVscodeTheme(worktreePath: string, branch: string): void {
   const { bg, fg } = pickColor(branch);
   const settingsPath = path.join(worktreePath, ".vscode", "settings.json");
   fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
@@ -104,8 +105,25 @@ export function writeVscodeTheme(worktreePath: string, branch: string): void {
       },
     ),
   );
+  // VSCode's Modern UI experiment paints .part backgrounds transparent with
+  // !important, which silently nullifies the colors above. Ships as a staged
+  // rollout, so pin it off per worktree — microsoft/vscode#326126.
+  next = applyEdits(
+    next,
+    modify(next, ["workbench.experimental.modernUI"], false, {
+      formattingOptions: FORMATTING,
+    }),
+  );
 
   fs.writeFileSync(settingsPath, next);
+}
+
+// Applies the per-worktree theme and keeps the edit out of git. Used on creation
+// (`add` / `pr`) and re-applied on `open`, so worktrees made with a bare
+// `git worktree add` — or before a theme change — still get colored.
+export function applyWorktreeTheme(worktreePath: string, branch: string): void {
+  writeVscodeTheme(worktreePath, branch);
+  hideFromGit(worktreePath, ".vscode/settings.json");
 }
 
 // Configures a Claude Code statusline showing the current branch, written to the
