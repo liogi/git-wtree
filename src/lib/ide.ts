@@ -37,7 +37,9 @@ export async function runIdeWizard(): Promise<void> {
     const ideName = await text({
       message: "IDE name:",
       placeholder: "Sublime Text",
-      validate: (v) => (v.trim() ? undefined : "Name is required"),
+      // clack v1 hands validate `string | undefined` — an empty prompt is
+      // `undefined`, not "".
+      validate: (v) => (v?.trim() ? undefined : "Name is required"),
     });
 
     if (isCancel(ideName)) {
@@ -49,7 +51,7 @@ export async function runIdeWizard(): Promise<void> {
       message: "Command to open a folder (use {path} as placeholder):",
       placeholder: "subl {path}",
       validate: (v) =>
-        v.trim()
+        v?.trim()
           ? v.includes("{path}")
             ? undefined
             : "Command must include {path}"
