@@ -11,6 +11,7 @@ import { commandDoctor } from "./commands/doctor.js";
 import { commandPr } from "./commands/pr.js";
 import { commandSyncEnv } from "./commands/syncEnv.js";
 import { commandTrust } from "./commands/trust.js";
+import { commandPrune } from "./commands/prune.js";
 import {
   commandConfigIde,
   commandConfigScanDirs,
@@ -130,6 +131,18 @@ program
   .action(
     (query: string | undefined, options: { apply?: boolean; all?: boolean }) =>
       commandSyncEnv(query, options),
+  );
+
+program
+  .command("prune")
+  .description(
+    "Remove worktrees whose branch has been merged (dry-run unless --apply)",
+  )
+  .option("--apply", "Actually remove them (default is a dry run)")
+  .option("--force", "Include worktrees with uncommitted or unpushed work")
+  .option("--base <ref>", "Compare against this ref instead of the main branch")
+  .action((options: { apply?: boolean; force?: boolean; base?: string }) =>
+    commandPrune(options),
   );
 
 program

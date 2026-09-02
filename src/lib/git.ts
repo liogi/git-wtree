@@ -265,6 +265,44 @@ export function isWorktreeDirty(worktreePath: string): boolean {
   }
 }
 
+/** True when `ancestor` is contained in `descendant`'s history. */
+export function isAncestor(
+  ancestor: string,
+  descendant: string,
+  cwd: string,
+): boolean {
+  return succeeds(
+    "git",
+    ["merge-base", "--is-ancestor", ancestor, descendant],
+    cwd,
+  );
+}
+
+// The ancestor test misses squash merges — GitHub rebuilds the change as one new
+// commit, so the branch is nowhere in the base's history even though the work
+// landed. Squash is the default merge button for a lot of teams, so without this
+// `prune` would consider almost nothing finished. Needs gh; callers say so when
+// it is missing rather than silently narrowing what they check.
+export function mergedPrFor(root: string, branch: string): number | null {
+  try {
+    const out = run(
+      "gh",
+      [
+        "pr", "list",
+        "--head", branch,
+        "--state", "merged",
+        "--json", "number",
+        "--limit", "1",
+      ],
+      root,
+    );
+    const prs = JSON.parse(out) as Array<{ number: number }>;
+    return prs[0]?.number ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export interface WorktreeStatus {
   /** Changed, staged and untracked entries. 0 means clean. */
   changes: number;

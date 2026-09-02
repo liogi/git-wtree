@@ -48,6 +48,7 @@ Both write a _static_ block (no `gitwtree` call at shell startup), so it's robus
 | `gwt pr <number> [--open]`          | Create a worktree from a GitHub pull request                  |
 | `gwt rm [branch] [--force]`         | Remove a worktree (picker if omitted; guards unsaved changes) |
 | `gwt ls`                            | List worktrees with their state, tracking and age             |
+| `gwt prune [--apply]`               | Remove worktrees whose branch has been merged                 |
 | `gwt open [branch]`                 | Open a worktree in your IDE (picker if omitted)               |
 | `gwt switch [query]`                | `cd` to another worktree (needs the shell integration)        |
 | `gwt shell-init [--install]`        | Install (or print) the shell integration; `--uninstall` too   |
@@ -188,6 +189,47 @@ A block that is installed but never sourced, or shadowed by oh-my-zsh's `gwt` al
      Either you haven't opened a new terminal since installing, or something
      (oh-my-zsh's git plugin aliases gwt) is shadowing it.
 ```
+
+### `gwt prune` — clean up finished work
+
+The problem the tool creates by working well: after a few months you have a dozen
+worktrees and most of them are merged pull requests. `prune` finds them.
+
+```bash
+gwt prune                    # dry run: what would go, and why
+gwt prune --apply            # actually remove them
+gwt prune --force --apply    # include ones with uncommitted work
+gwt prune --base release     # compare against another ref
+```
+
+```
+$ gwt prune
+
+●  Base: main
+◇  remove feat/login      merged into main
+◇  remove fix/typo        PR #12 merged
+◇  skip   spike/idea      merged into main — has uncommitted or unpushed work
+◇  keep   feat/wip        not merged
+
+Dry run — 2 worktree(s) would be removed. Re-run with --apply.
+```
+
+Two ways a branch counts as finished, because one is not enough:
+
+- it is an **ancestor** of the base — covers merge commits and rebases
+- its **pull request is merged** — covers squash merges, where GitHub rebuilds the
+  change as a new commit and the branch appears nowhere in the base's history
+
+The second needs [`gh`](https://cli.github.com/). Without it, `prune` says so
+rather than quietly finding less.
+
+It borrows its conventions rather than inventing any: dry run with `--apply` like
+`gwt sync-env`, and the same dirty guard with `--force` as `gwt rm`. Teardown hooks
+run before each removal, subject to the same `gwt trust` approval.
+
+**Branches are never deleted.** Removing a worktree frees a directory; deleting a
+branch discards history. `gwt rm` asks you about the second one at a time — a bulk
+command is the wrong place to decide it for you.
 
 ### `.env` syncing
 
