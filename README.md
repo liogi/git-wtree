@@ -43,6 +43,7 @@ Both write a _static_ block (no `gitwtree` call at shell startup), so it's robus
 | Command                             | Description                                                   |
 | ----------------------------------- | ------------------------------------------------------------- |
 | `gwt add <branch> [--from <base>]`  | Create a worktree, sync `.env` files, and run the setup hook  |
+| `gwt add <branch> --force`          | …resetting to remote even if the branch has unpushed commits  |
 | `gwt pr <number>`                   | Create a worktree from a GitHub pull request                  |
 | `gwt rm [branch] [--force]`         | Remove a worktree (picker if omitted; guards unsaved changes) |
 | `gwt ls`                            | List all worktrees                                            |
@@ -66,13 +67,36 @@ Both write a _static_ block (no `gitwtree` call at shell startup), so it's robus
 Creates a git worktree for the given branch, copies `.env` files from the main repo, and runs the [setup hook](#setup--teardown-hooks).
 
 - If the branch **doesn't exist**, it's created from `HEAD` by default — use `--from` to specify a different base.
-- If the branch **already exists locally**, it fetches the latest remote changes and resets to them (handles force-pushes cleanly).
+- If the branch **already exists locally**, it fetches the latest remote changes and resets to them (handles force-pushes cleanly) — unless that reset would throw away work, see below.
 
 ```bash
 gwt add my-feature                     # create from HEAD
 gwt add my-feature --from production   # create from production
 gwt add codex/fix-bug                  # checkout existing branch, reset to remote
 ```
+
+#### When the branch has unpushed commits
+
+Resetting to the remote is what makes an upstream force-push land cleanly, but the
+same reset silently discards commits your branch has and origin does not. `gwt add`
+stops and shows them instead:
+
+```
+▲  2 commits on 'my-feature' are not on origin:
+       60fec9a fix the parser
+       4b4637a add a failing test
+
+◆  Reset 'my-feature' to origin/my-feature?
+   ❯ Keep them — skip the reset          the worktree stays on your local commits
+     Discard them and reset              recoverable with git reflog
+```
+
+Outside a terminal it keeps them and says so, rather than guessing. `--force` resets
+without asking, and points at `git reflog <branch>` afterwards so the commits can be
+recovered.
+
+This mirrors `gwt rm`, which already refuses to remove a worktree that is ahead of its
+upstream — the two commands used to contradict each other.
 
 ### `gwt pr <number>`
 
