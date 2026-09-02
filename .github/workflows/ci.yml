@@ -14,9 +14,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Mirrors package.json `engines.node`. Shrinks to [22, 24] when the
-        # commander@15 / clack@1 bump raises the floor to >=22.12.
-        node: ["18", "20", "22", "24"]
+        # Mirrors package.json `engines.node` (>=22.12, set by commander@15).
+        node: ["22", "24"]
 
     steps:
       - uses: actions/checkout@v4
