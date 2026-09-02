@@ -41,6 +41,41 @@ jobs:
           node dist/index.js doctor
           node dist/index.js config
 
+      # `gwt add` resets an existing branch to its remote. That reset used to
+      # discard local commits silently — real work, gone with no prompt. The
+      # non-interactive default must be to keep them.
+      - name: Smoke — add does not silently discard unpushed commits
+        run: |
+          gwt="$GITHUB_WORKSPACE/dist/index.js"
+          tmp="$(mktemp -d)"
+          git init -q --bare "$tmp/origin.git"
+          git clone -q "$tmp/origin.git" "$tmp/repo"
+          cd "$tmp/repo"
+          git config user.email ci@example.com
+          git config user.name CI
+
+          git commit -q --allow-empty -m base
+          git push -q -u origin main
+          git checkout -q -b feature
+          git commit -q --allow-empty -m pushed
+          git push -q -u origin feature
+          git commit -q --allow-empty -m "unpushed work"
+          git checkout -q main
+
+          node "$gwt" add feature
+          if [ "$(git log --oneline origin/feature..feature | wc -l)" -ne 1 ]; then
+            echo "REGRESSION: gwt add discarded an unpushed commit"
+            exit 1
+          fi
+
+          # --force is the documented way to reset anyway.
+          git worktree remove ../repo-feature --force
+          node "$gwt" add feature --force
+          if [ -n "$(git log --oneline origin/feature..feature)" ]; then
+            echo "REGRESSION: --force did not reset"
+            exit 1
+          fi
+
       # Branch names must reach git as argv entries, never as shell input. Git
       # refnames legitimately allow `"`, `$`, backticks and `;`, and `gwt pr`
       # checks out branches named by people we do not control — so a regression

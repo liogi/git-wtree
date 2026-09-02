@@ -40,8 +40,12 @@ program
   .command("add <branch>")
   .description("Create a worktree, sync .env files, and run the setup hook")
   .option("--from <base>", "Base branch to create from (default: HEAD)")
-  .action((branch: string, options: { from?: string }) =>
-    commandAdd(branch, options.from),
+  .option(
+    "--force",
+    "Reset to remote even when the branch has unpushed commits",
+  )
+  .action((branch: string, options: { from?: string; force?: boolean }) =>
+    commandAdd(branch, options.from, { force: options.force }),
   );
 
 program

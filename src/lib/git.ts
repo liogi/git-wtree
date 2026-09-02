@@ -100,6 +100,23 @@ export function resetToRemote(worktreePath: string, branch: string): void {
   runVisible("git", ["reset", "--hard", `origin/${branch}`], worktreePath);
 }
 
+// Commits on the local branch that origin does not have, newest first, as
+// "<short sha> <subject>". Empty when the branch is level with or behind its
+// remote — which is the ordinary case `gwt add` resets through silently.
+export function unpushedCommits(worktreePath: string, branch: string): string[] {
+  try {
+    const out = run(
+      "git",
+      ["log", "--format=%h %s", `origin/${branch}..${branch}`],
+      worktreePath,
+    );
+    return out.length > 0 ? out.split("\n") : [];
+  } catch {
+    // No remote-tracking ref, unrelated histories, … — nothing we can report on.
+    return [];
+  }
+}
+
 export function deleteLocalBranch(branch: string): void {
   runVisible("git", ["branch", "-D", branch], getRepoRoot());
 }
