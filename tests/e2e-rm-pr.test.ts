@@ -2,7 +2,16 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { tmpDir, tmpRepo, tmpRepoWithRemote, write, runCli, git, homeWithConfig } from "./helpers/fixtures.ts";
+import {
+  tmpDir,
+  tmpRepo,
+  tmpRepoWithRemote,
+  write,
+  runCli,
+  git,
+  homeWithConfig,
+  pathWithout,
+} from "./helpers/fixtures.ts";
 
 function siblingOf(repo: string, branch: string): string {
   return path.join(path.dirname(repo), `${path.basename(repo)}-${branch}`);
@@ -108,11 +117,7 @@ describe("gwt pr", () => {
     git(repo, "checkout", "-q", "main");
     git(repo, "branch", "-q", "-D", "contributor-work");
 
-    const r = runCli(["pr", "42"], {
-      cwd: repo,
-      // An empty PATH entry plus the system dirs, minus wherever gh lives.
-      env: { PATH: "/usr/bin:/bin" },
-    });
+    const r = runCli(["pr", "42"], { cwd: repo, env: { PATH: pathWithout("gh") } });
 
     assert.equal(r.code, 0, r.output);
     assert.match(r.output, /gh not found/);

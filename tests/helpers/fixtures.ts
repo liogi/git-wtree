@@ -1,5 +1,12 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync } from "node:fs";
+import {
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  rmSync,
+  realpathSync,
+  symlinkSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { after } from "node:test";
@@ -112,4 +119,25 @@ export function homeWithConfig(config: Record<string, unknown>): string {
     JSON.stringify(config, null, 2),
   );
   return home;
+}
+
+/**
+ * A PATH containing git and nothing else, so `gh` is genuinely absent.
+ *
+ * Trimming PATH to the system directories does not work: gh lives in /usr/bin
+ * on GitHub runners and in /opt/homebrew/bin locally, so the same trick hides
+ * it on one machine and not the other. Symlinking only what we want is the only
+ * form that means the same thing everywhere.
+ */
+export function pathWithout(...binaries: string[]): string {
+  const dir = tmpDir("bin-");
+  const wanted = ["git", "sh"].filter((b) => !binaries.includes(b));
+  for (const bin of wanted) {
+    const resolved = spawnSync("command", ["-v", bin], {
+      encoding: "utf-8",
+      shell: true,
+    }).stdout.trim();
+    if (resolved) symlinkSync(resolved, path.join(dir, bin));
+  }
+  return dir;
 }
