@@ -81,6 +81,16 @@ export async function runIdeWizard(): Promise<void> {
   log.success(`IDE configured: ${found.label}`);
 }
 
+// The IDE command is a user-supplied template that may carry flags, so unlike
+// everything in git.ts it genuinely has to go through a shell. Single quotes
+// disable every form of interpretation, and the only character that can escape
+// them is a single quote itself. Double quotes would not be enough: a worktree
+// directory is named after its branch, and git allows `"`, `$` and backticks in
+// a refname — `gwt open` on a branch named `a";id;"b` would otherwise run `id`.
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
 export function openInIde(worktreePath: string): void {
   const config = readConfig();
 
@@ -89,6 +99,6 @@ export function openInIde(worktreePath: string): void {
     return;
   }
 
-  const cmd = config.ideCommand.replace("{path}", `"${worktreePath}"`);
+  const cmd = config.ideCommand.replace("{path}", shellQuote(worktreePath));
   execSync(cmd, { stdio: "ignore" });
 }
