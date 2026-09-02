@@ -2,7 +2,15 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { tmpDir, tmpRepo, tmpRepoWithRemote, write, runCli, git } from "./helpers/fixtures.ts";
+import {
+  tmpDir,
+  tmpRepo,
+  tmpRepoWithRemote,
+  write,
+  runCli,
+  git,
+  homeWithConfig,
+} from "./helpers/fixtures.ts";
 
 function siblingOf(repo: string, branch: string): string {
   return path.join(path.dirname(repo), `${path.basename(repo)}-${branch.replace(/\//g, "-")}`);
@@ -136,5 +144,44 @@ describe("gwt add on a branch that already exists", () => {
     assert.equal(r.code, 0);
     assert.doesNotMatch(r.output, /not on origin/);
     assert.match(r.output, /Resetting to remote/);
+  });
+});
+
+// The README's headline promised "open your IDE — all in one command" while
+// `add` never called it. Rather than quietly correcting the sentence, the
+// capability exists — opt in, since a window appearing on every add is not
+// always wanted.
+describe("--open", () => {
+  test("hands the new worktree to the configured IDE", () => {
+    const repo = tmpRepo();
+    const recorded = path.join(tmpDir(), "opened");
+    const home = homeWithConfig({
+      ide: "recorder",
+      ideCommand: `printf %s {path} > ${recorded}`,
+    });
+
+    const r = runCli(["add", "opened-branch", "--open"], { cwd: repo, home });
+    assert.equal(r.code, 0);
+    assert.equal(readFileSync(recorded, "utf-8"), siblingOf(repo, "opened-branch"));
+  });
+
+  test("without it, nothing is opened", () => {
+    const repo = tmpRepo();
+    const recorded = path.join(tmpDir(), "not-opened");
+    const home = homeWithConfig({
+      ide: "recorder",
+      ideCommand: `printf %s {path} > ${recorded}`,
+    });
+
+    runCli(["add", "quiet-branch"], { cwd: repo, home });
+    assert.equal(existsSync(recorded), false);
+  });
+
+  test("with no IDE configured it prints the path instead of prompting", () => {
+    const repo = tmpRepo();
+    const r = runCli(["add", "pathonly", "--open"], { cwd: repo });
+    assert.equal(r.code, 0);
+    assert.match(r.output, /Worktree path:/);
+    assert.doesNotMatch(r.output, /uv_tty_init/);
   });
 });

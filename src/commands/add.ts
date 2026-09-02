@@ -12,6 +12,7 @@ import {
   unpushedCommits,
 } from "../lib/git.js";
 import { finalizeWorktree } from "../lib/finalize.js";
+import { openInIde } from "../lib/ide.js";
 
 // `gwt add` resets an existing branch to its remote so a force-push upstream is
 // picked up cleanly. That same reset silently discards local commits the branch
@@ -67,7 +68,7 @@ async function confirmDiscardingCommits(
 export async function commandAdd(
   branch: string,
   from?: string,
-  options: { force?: boolean } = {},
+  options: { force?: boolean; open?: boolean } = {},
 ): Promise<void> {
   intro(`gwt add ${branch}`);
 
@@ -128,6 +129,12 @@ export async function commandAdd(
   }
 
   finalizeWorktree(root, worktreePath, branch);
+
+  // Opt-in rather than automatic: creating a worktree and having a window appear
+  // is not always what you want, and `gwt open` already exists for later.
+  // openInIde prints the path when no IDE is configured, so this stays usable
+  // without a terminal.
+  if (options.open) openInIde(worktreePath);
 
   outro(`Worktree ready!\n   Path:   ${worktreePath}\n   Branch: ${branch}`);
 }

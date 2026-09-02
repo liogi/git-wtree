@@ -9,6 +9,7 @@ import {
   createWorktreeFromPrFetch,
 } from "../lib/git.js";
 import { finalizeWorktree } from "../lib/finalize.js";
+import { openInIde } from "../lib/ide.js";
 
 async function resolvePrNumber(
   root: string,
@@ -50,7 +51,10 @@ async function resolvePrNumber(
   return choice;
 }
 
-export async function commandPr(prNumber?: string): Promise<void> {
+export async function commandPr(
+  prNumber?: string,
+  options: { open?: boolean } = {},
+): Promise<void> {
   let root: string;
   try {
     root = getRepoRoot();
@@ -85,6 +89,8 @@ export async function commandPr(prNumber?: string): Promise<void> {
   }
 
   finalizeWorktree(root, worktreePath, branch);
+
+  if (options.open) openInIde(worktreePath);
 
   outro(
     `Worktree ready!\n   Path:   ${worktreePath}\n   Branch: ${branch}\n   PR:     #${resolved}`,

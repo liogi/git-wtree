@@ -1,5 +1,6 @@
 import { execFileSync } from "child_process";
 import { intro, outro, log } from "@clack/prompts";
+import pc from "picocolors";
 import {
   VERSION,
   detectShell,
@@ -7,20 +8,26 @@ import {
   readInstalledBlock,
 } from "../lib/shellIntegration.js";
 
-// Health check for the install. Reports what the binary can verify — git,
-// version, and the installed shell-integration block (present + version) — and
-// guides for what it cannot see: a binary can't inspect the parent shell, so it
-// can't tell whether `gwt` currently resolves to the function or the oh-my-zsh
-// alias. The user checks that with `type gwt`.
+// Health check for the install. Two different questions get answered here, and
+// conflating them is what made the old version unhelpful:
+//
+//   1. Is the block written to the rc file?      → read the file
+//   2. Is the block ACTIVE in the shell that     → read GWT_SHELL_INTEGRATION,
+//      launched this command?                       which the block exports
+//
+// (2) is the one that matters — a block installed but never sourced, or shadowed
+// by oh-my-zsh's `gwt` alias, looks identical to a missing one from the user's
+// side. This used to be handed back as "run `type gwt` yourself".
 export function commandDoctor(): void {
   intro("gwt doctor");
 
   try {
-    const gitVersion = execFileSync("git", ["--version"], {
-      encoding: "utf-8",
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
-    log.success(gitVersion);
+    log.success(
+      execFileSync("git", ["--version"], {
+        encoding: "utf-8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim(),
+    );
   } catch {
     log.error("git not found on PATH");
   }
@@ -29,27 +36,40 @@ export function commandDoctor(): void {
 
   const shell = detectShell();
   const rc = rcPathFor(shell);
-  const { present, version } = readInstalledBlock(rc);
+  const onDisk = readInstalledBlock(rc);
+  const active = process.env.GWT_SHELL_INTEGRATION;
 
-  if (!present) {
+  if (!onDisk.present) {
     log.warn(
-      `Shell integration not found in ${rc}.\n   Run: gitwtree shell-init --install`,
+      `Shell integration not installed in ${rc}.\n   Run: gitwtree shell-init --install`,
     );
-  } else if (version && version !== VERSION) {
+  } else if (onDisk.version && onDisk.version !== VERSION) {
     log.warn(
-      `Shell integration is v${version} in ${rc}, but gitwtree is v${VERSION}.\n   Run: gitwtree shell-init --install to update it.`,
+      `Shell integration in ${rc} is v${onDisk.version}, but gitwtree is v${VERSION}.\n   Run: gitwtree shell-init --install to update it.`,
     );
   } else {
     log.success(
-      `Shell integration installed in ${rc}${version ? ` (v${version})` : ""}`,
+      `Shell integration installed in ${rc}${onDisk.version ? ` (v${onDisk.version})` : ""}`,
     );
   }
 
-  log.info(
-    "A binary can't inspect the current shell — check `gwt` yourself:\n" +
-      '   run `type gwt` → "function" is good; "alias" (oh-my-zsh) means the\n' +
-      "   integration isn't active — install it and open a new shell.",
-  );
+  if (!active) {
+    log.warn(
+      onDisk.present
+        ? `Installed, but not active in this shell — GWT_SHELL_INTEGRATION is unset.\n` +
+            `   Either you haven't opened a new terminal since installing, or something\n` +
+            `   (oh-my-zsh's git plugin aliases ${pc.cyan("gwt")}) is shadowing it.\n` +
+            `   Open a new terminal; if it persists, check ${pc.cyan("type gwt")} — it must say "function".`
+        : "Not active in this shell either — GWT_SHELL_INTEGRATION is unset.",
+    );
+  } else if (active !== VERSION) {
+    log.warn(
+      `Active in this shell, but it is v${active} while gitwtree is v${VERSION}.\n` +
+        `   Run: gitwtree shell-init --install, then open a new terminal.`,
+    );
+  } else {
+    log.success(`Active in this shell (v${active}) — \`gwt\` is the function.`);
+  }
 
   outro("Done");
 }
