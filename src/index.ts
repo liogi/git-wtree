@@ -44,8 +44,16 @@ program
     "--force",
     "Reset to remote even when the branch has unpushed commits",
   )
-  .action((branch: string, options: { from?: string; force?: boolean }) =>
-    commandAdd(branch, options.from, { force: options.force }),
+  .option("--open", "Open the new worktree in your IDE")
+  .action(
+    (
+      branch: string,
+      options: { from?: string; force?: boolean; open?: boolean },
+    ) =>
+      commandAdd(branch, options.from, {
+        force: options.force,
+        open: options.open,
+      }),
   );
 
 program
@@ -59,7 +67,10 @@ program
 program
   .command("pr [number]")
   .description("Create a worktree from a GitHub PR (omit number to pick one)")
-  .action((number: string | undefined) => commandPr(number));
+  .option("--open", "Open the new worktree in your IDE")
+  .action((number: string | undefined, options: { open?: boolean }) =>
+    commandPr(number, options),
+  );
 
 program.command("ls").description("List all worktrees").action(commandLs);
 

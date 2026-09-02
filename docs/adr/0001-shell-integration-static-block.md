@@ -20,3 +20,18 @@ Verified empirically: with `gitwtree` off the PATH at source-time, the `eval` fo
 - The wrapper is frozen in the rc at install time. It changes only when a new shell-side command (like `switch`) is added — never for plain subcommands, which flow through `command gitwtree "$@"`. Updating means re-running `gitwtree shell-init --install`, which rewrites the marker-delimited block in place. A version tag in the marker (`# >>> git-wtree vX >>>`) makes staleness visible.
 - The block is delimited by markers, so `--install` is idempotent (detect / replace / skip) and `--uninstall` removes it cleanly.
 - `bash` on macOS: Terminal launches a login shell reading `~/.bash_profile`, not `~/.bashrc`. `--install` targets `~/.bashrc` and warns rather than editing a second file. `--rc <path>` is the escape hatch.
+
+## Amendment: the block reports itself (accepted later)
+
+This ADR left `doctor` unable to answer the question users actually hit — is `gwt` the function,
+or still oh-my-zsh's alias? — on the grounds that a binary cannot inspect its parent shell. That is
+true, and it framed the problem the wrong way round: the block runs *inside* that shell, and can
+leave a mark that every child process inherits.
+
+The block now exports `GWT_SHELL_INTEGRATION=<version>`. Its presence means the block was sourced,
+and the block is what clears the aliases and defines the function, so presence implies `gwt` is the
+function. `doctor` reports rc-file state and in-shell state separately, because "installed" and
+"active" fail independently and look identical from outside.
+
+Consequence: the block content changed, so anyone who installed an earlier version must re-run
+`gitwtree shell-init --install`. `doctor` says so.

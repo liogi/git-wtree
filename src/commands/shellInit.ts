@@ -21,7 +21,14 @@ import {
 // parse the whole block (alias still active) before the unalias executes.
 // Crucially, nothing here runs `gitwtree` at source-time: the only call is
 // `command gitwtree` inside the body, at run-time. See docs/adr/0001.
-const POSIX = `unalias gwt gwta gwtls gwtmv gwtrm 2>/dev/null
+// The block exports its own version. ADR 0001 said a binary cannot inspect the
+// parent shell, which is true — but the block running *inside* that shell can
+// leave a mark, and every child process inherits it. That is what lets `doctor`
+// answer the question it used to have to hand back to the user: is `gwt` the
+// function, or is it still oh-my-zsh's alias? The variable exists only if this
+// block was sourced, and this block is what unaliases and defines the function.
+const POSIX = (version: string) => `export GWT_SHELL_INTEGRATION=${version}
+unalias gwt gwta gwtls gwtmv gwtrm 2>/dev/null
 eval 'gwt() {
   case "$1" in
     switch|sw)
@@ -38,7 +45,8 @@ eval 'gwt() {
   esac
 }'`;
 
-const FISH = `function gwt
+const FISH = (version: string) => `set -gx GWT_SHELL_INTEGRATION ${version}
+function gwt
   if test "$argv[1]" = switch -o "$argv[1]" = sw
     set -l _gwt_out (mktemp)
     command gitwtree path --out "$_gwt_out" $argv[2..-1]
@@ -51,7 +59,7 @@ const FISH = `function gwt
 end`;
 
 function snippetFor(shell: Shell): string {
-  return shell === "fish" ? FISH : POSIX;
+  return shell === "fish" ? FISH(VERSION) : POSIX(VERSION);
 }
 
 function buildBlock(shell: Shell): string {

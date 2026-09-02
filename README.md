@@ -2,7 +2,7 @@
 
 > Git worktree manager with .env syncing and IDE integration
 
-Streamline your git worktree workflow: create isolated branches, sync environment files, install dependencies, give each worktree its own editor color, and open your IDE — all in one command.
+Streamline your git worktree workflow: create isolated branches, sync environment files, install dependencies, give each worktree its own editor color, and — with `--open` — launch your IDE, all in one command.
 
 ## Install
 
@@ -44,7 +44,8 @@ Both write a _static_ block (no `gitwtree` call at shell startup), so it's robus
 | ----------------------------------- | ------------------------------------------------------------- |
 | `gwt add <branch> [--from <base>]`  | Create a worktree, sync `.env` files, and run the setup hook  |
 | `gwt add <branch> --force`          | …resetting to remote even if the branch has unpushed commits  |
-| `gwt pr <number>`                   | Create a worktree from a GitHub pull request                  |
+| `gwt add <branch> --open`           | …and open it in your IDE straight away                        |
+| `gwt pr <number> [--open]`          | Create a worktree from a GitHub pull request                  |
 | `gwt rm [branch] [--force]`         | Remove a worktree (picker if omitted; guards unsaved changes) |
 | `gwt ls`                            | List all worktrees                                            |
 | `gwt open [branch]`                 | Open a worktree in your IDE (picker if omitted)               |
@@ -72,8 +73,12 @@ Creates a git worktree for the given branch, copies `.env` files from the main r
 ```bash
 gwt add my-feature                     # create from HEAD
 gwt add my-feature --from production   # create from production
+gwt add my-feature --open              # …and open it in your IDE
 gwt add codex/fix-bug                  # checkout existing branch, reset to remote
 ```
+
+`--open` is opt-in: creating a worktree does not pop a window unless you ask.
+`gwt pr` takes it too.
 
 #### When the branch has unpushed commits
 
@@ -147,7 +152,19 @@ Checks the install: `git` availability, the `gitwtree` version, and whether the 
 gwt doctor
 ```
 
-One thing it **can't** check: a binary can't inspect the parent shell, so it can't tell whether `gwt` currently resolves to the function or to oh-my-zsh's alias. Run `type gwt` yourself — `"function"` is good; `"alias"` means the integration isn't active in this shell.
+It answers two separate questions, and the second is the one that usually matters:
+
+1. **Is the block written to your rc?** — read from the file.
+2. **Is it active in *this* shell?** — the block exports `GWT_SHELL_INTEGRATION`, which every command it launches inherits.
+
+A block that is installed but never sourced, or shadowed by oh-my-zsh's `gwt` alias, looks exactly like a missing one from the outside. `doctor` tells them apart:
+
+```
+◆  Shell integration installed in ~/.zshrc (v1.2.3)
+▲  Installed, but not active in this shell — GWT_SHELL_INTEGRATION is unset.
+     Either you haven't opened a new terminal since installing, or something
+     (oh-my-zsh's git plugin aliases gwt) is shadowing it.
+```
 
 ### `.env` syncing
 
