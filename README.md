@@ -47,7 +47,7 @@ Both write a _static_ block (no `gitwtree` call at shell startup), so it's robus
 | `gwt add <branch> --open`           | …and open it in your IDE straight away                        |
 | `gwt pr <number> [--open]`          | Create a worktree from a GitHub pull request                  |
 | `gwt rm [branch] [--force]`         | Remove a worktree (picker if omitted; guards unsaved changes) |
-| `gwt ls`                            | List all worktrees                                            |
+| `gwt ls`                            | List worktrees with their state, tracking and age             |
 | `gwt open [branch]`                 | Open a worktree in your IDE (picker if omitted)               |
 | `gwt switch [query]`                | `cd` to another worktree (needs the shell integration)        |
 | `gwt shell-init [--install]`        | Install (or print) the shell integration; `--uninstall` too   |
@@ -114,6 +114,29 @@ gwt pr        # no number → pick from open PRs (arrow-key picker, requires gh)
 
 - If [`gh`](https://cli.github.com/) is installed, it runs `gh pr checkout` inside the worktree — you get the PR's real branch with push tracking (works for forks too), so you can push fixes back.
 - Otherwise it falls back to `git fetch origin pull/<number>/head` into a local `pr-<number>` branch (review only).
+
+### `gwt ls`
+
+The dashboard. Beyond the branch and the path, it answers the three questions you
+actually have when several worktrees are open at once: which ones hold work you
+haven't committed, which are out of step with their remote, and which have gone
+stale.
+
+```
+$ gwt ls
+
+  main (main)  clean · 3 hours ago
+  ~/projects/myrepo
+
+  feat/login  2 changes · ↑1 ↓3 · 5 minutes ago
+  ~/projects/myrepo-feat-login
+
+  spike/idea  clean · no upstream · 3 weeks ago
+  ~/projects/myrepo-spike-idea
+```
+
+`no upstream` is worth noticing: that is the branch `gwt rm` will refuse to
+remove, because nothing has a copy of it.
 
 ### `gwt open [branch]`
 
