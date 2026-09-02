@@ -54,6 +54,9 @@ jobs:
           git config user.email ci@example.com
           git config user.name CI
 
+          # Runners have no init.defaultBranch, so the clone's unborn HEAD is not
+          # necessarily `main`. Name it explicitly rather than inheriting it.
+          git checkout -q -b main
           git commit -q --allow-empty -m base
           git push -q -u origin main
           git checkout -q -b feature
