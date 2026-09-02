@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A bot-opened dependency PR is only useful if something verifies it. This is that
+# something: it type-checks (tsc is the build), then boots the built CLI on every
+# Node version `engines` claims to support.
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Mirrors package.json `engines.node`. Shrinks to [22, 24] when the
+        # commander@15 / clack@1 bump raises the floor to >=22.12.
+        node: ["18", "20", "22", "24"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - run: npm ci
+
+      # `npm run build` is `tsc` — compiling is the type check.
+      - run: npm run build
+
+      # Smoke test: a clean `tsc` says nothing about whether the binary starts.
+      # These run the real entrypoint against the checked-out repo (itself a git
+      # worktree), covering arg parsing, git plumbing, and config reads.
+      - name: Smoke — CLI boots
+        run: |
+          node dist/index.js --version
+          node dist/index.js ls
+          node dist/index.js doctor
+          node dist/index.js config
+
+      # The riskiest code path in the project: it edits the user's shell rc.
+      # `--rc` points it at a throwaway file so CI can exercise install →
+      # idempotent re-install → uninstall without touching the runner's HOME.
+      - name: Smoke — shell-init round-trip
+        run: |
+          rc="$(mktemp)"
+          printf 'export PATH=/pre-existing\n' > "$rc"
+
+          node dist/index.js shell-init zsh --install --rc "$rc"
+          grep -q '# >>> git-wtree' "$rc"
+
+          # Re-installing must replace the block, not stack a second one.
+          node dist/index.js shell-init zsh --install --rc "$rc"
+          count="$(grep -c '# >>> git-wtree' "$rc")"
+          [ "$count" -eq 1 ] || { echo "expected 1 block, found $count"; cat "$rc"; exit 1; }
+
+          node dist/index.js shell-init zsh --uninstall --rc "$rc"
+          if grep -q 'git-wtree' "$rc"; then
+            echo "block survived uninstall"; cat "$rc"; exit 1
+          fi
+
+          # The user's own content must come back untouched.
+          grep -q 'export PATH=/pre-existing' "$rc"

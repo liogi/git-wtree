@@ -1,0 +1,26 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "timezone": "Europe/Paris",
+  "schedule": ["* 0-6 1 * *"],
+  "semanticCommits": "enabled",
+  "minimumReleaseAge": "14 days",
+  "prConcurrentLimit": 3,
+  "packageRules": [
+    {
+      "description": "devDependencies move together — one PR to review, not three.",
+      "matchDepTypes": ["devDependencies"],
+      "groupName": "dev dependencies"
+    },
+    {
+      "description": "A new major of the compiler is the one update that should never arrive quietly. TypeScript 7 is the Go rewrite; give it a full quarter of other people's bug reports first.",
+      "matchPackageNames": ["typescript"],
+      "matchUpdateTypes": ["major"],
+      "minimumReleaseAge": "90 days"
+    }
+  ],
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["* 0-6 1 * *"]
+  }
+}
