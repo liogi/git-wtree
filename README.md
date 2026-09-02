@@ -288,6 +288,22 @@ gwt config theme off        # disable color + window title
 gwt config statusline off   # disable the Claude statusline
 ```
 
+## Development
+
+```bash
+npm test          # builds, type-checks the tests, runs them
+npm run build     # tsc
+```
+
+Tests are plain `node:test`, written in TypeScript and run by Node directly —
+no test runner dependency and no separate compile step. They exercise the
+**built** binary rather than the source, so what is tested is what ships.
+
+The security-critical behaviours are tests, not documentation: a branch name
+cannot execute a shell command, an unapproved `.gitwtree.json` cannot run its
+commands, `gwt add` cannot discard unpushed commits, and `shellQuote` round-trips
+every metacharacter a git refname allows.
+
 ## Worktree location
 
 Worktrees are created as siblings of your repo directory:

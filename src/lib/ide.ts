@@ -23,6 +23,14 @@ const KNOWN_IDES: KnownIde[] = [
 ];
 
 export async function runIdeWizard(): Promise<void> {
+  // Same TTY trap as `gwt rm`: clack cannot prompt without one.
+  if (!process.stdin.isTTY) {
+    log.error(
+      "No IDE configured, and configuring one needs a terminal.\n   Run `gwt config ide` interactively, or use `gwt path` to get the directory.",
+    );
+    process.exit(1);
+  }
+
   const selected = await select({
     message: "Which IDE do you use?",
     options: KNOWN_IDES.map((ide) => ({ label: ide.label, value: ide.value })),
@@ -89,7 +97,7 @@ export async function runIdeWizard(): Promise<void> {
 // them is a single quote itself. Double quotes would not be enough: a worktree
 // directory is named after its branch, and git allows `"`, `$` and backticks in
 // a refname — `gwt open` on a branch named `a";id;"b` would otherwise run `id`.
-function shellQuote(value: string): string {
+export function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'\\''`)}'`;
 }
 

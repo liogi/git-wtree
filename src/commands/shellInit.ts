@@ -60,11 +60,24 @@ function buildBlock(shell: Shell): string {
 }
 
 // Removes an existing git-wtree block (plus a single blank line above it, to
-// avoid leaving gaps). Returns whether one was found.
-function stripBlock(content: string): { content: string; found: boolean } {
+// avoid leaving gaps). Returns whether one was found, and whether the block was
+// truncated.
+//
+// A BEGIN with no END means a half-written or hand-edited block. Returning
+// "nothing found" there was a bug: install would then APPEND a second block,
+// leaving a stale marker that `readInstalledBlock` reads first — so `doctor`
+// reported the old version forever and every reinstall added one more block.
+// We drop the orphan marker line, which is ours, and leave everything after it
+// alone, which is not.
+function stripBlock(content: string): {
+  content: string;
+  found: boolean;
+  truncated: boolean;
+} {
   const lines = content.split("\n");
   const begin = lines.findIndex((l) => l.startsWith(BEGIN));
-  if (begin === -1) return { content, found: false };
+  if (begin === -1) return { content, found: false, truncated: false };
+
   let end = -1;
   for (let i = begin; i < lines.length; i++) {
     if (lines[i].startsWith(END)) {
@@ -72,12 +85,18 @@ function stripBlock(content: string): { content: string; found: boolean } {
       break;
     }
   }
-  if (end === -1) return { content, found: false };
 
   let start = begin;
   if (start > 0 && lines[start - 1].trim() === "") start -= 1;
+
+  if (end === -1) {
+    // Remove the marker only — the lines below it may be the user's.
+    lines.splice(start, begin - start + 1);
+    return { content: lines.join("\n"), found: true, truncated: true };
+  }
+
   lines.splice(start, end - start + 1);
-  return { content: lines.join("\n"), found: true };
+  return { content: lines.join("\n"), found: true, truncated: false };
 }
 
 function warnBashMacosIfNeeded(shell: Shell): void {
@@ -94,7 +113,7 @@ function warnBashMacosIfNeeded(shell: Shell): void {
 function install(shell: Shell, rcOverride?: string): void {
   const rc = rcOverride ?? rcPathFor(shell);
   const existing = fs.existsSync(rc) ? fs.readFileSync(rc, "utf-8") : "";
-  const { content: stripped, found } = stripBlock(existing);
+  const { content: stripped, found, truncated } = stripBlock(existing);
 
   let next = stripped;
   if (next.length > 0 && !next.endsWith("\n")) next += "\n";
@@ -103,6 +122,12 @@ function install(shell: Shell, rcOverride?: string): void {
   fs.mkdirSync(path.dirname(rc), { recursive: true });
   fs.writeFileSync(rc, next);
 
+  if (truncated) {
+    process.stdout.write(
+      `⚠ ${rc} had a git-wtree block with no closing marker. Removed the marker;\n` +
+        "  check for leftover lines from it below your other settings.\n",
+    );
+  }
   process.stdout.write(
     `${found ? "Updated" : "Added"} git-wtree shell integration in ${rc}\n`,
   );
@@ -116,7 +141,12 @@ function uninstall(shell: Shell, rcOverride?: string): void {
     process.stdout.write(`Nothing to remove: ${rc} not found.\n`);
     return;
   }
-  const { content, found } = stripBlock(fs.readFileSync(rc, "utf-8"));
+  const { content, found, truncated } = stripBlock(fs.readFileSync(rc, "utf-8"));
+  if (truncated) {
+    process.stdout.write(
+      `⚠ The block in ${rc} had no closing marker; removed the marker only.\n`,
+    );
+  }
   if (!found) {
     process.stdout.write(`No git-wtree block found in ${rc}.\n`);
     return;

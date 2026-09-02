@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Type-checking only: tests are executed by node's own type stripping, so
+    // nothing is emitted and the src-only rootDir does not apply.
+    "noEmit": true,
+    "rootDir": ".",
+    "types": ["node"],
+    // Node needs the real `.ts` extension in the specifier to resolve it.
+    "allowImportingTsExtensions": true
+  },
+  "include": ["tests/**/*.ts"]
+}
