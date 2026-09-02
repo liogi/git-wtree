@@ -6,7 +6,7 @@ import {
 } from "../lib/git.js";
 import { resolveWorktree } from "../lib/resolveWorktree.js";
 import { planEnvSync, applyEnvSync, type EnvSyncEntry } from "../lib/env.js";
-import { readConfig } from "../lib/config.js";
+import { resolveConfig } from "../lib/repoConfig.js";
 
 interface SyncEnvOptions {
   apply?: boolean;
@@ -56,7 +56,7 @@ export async function commandSyncEnv(
     targets = [target];
   }
 
-  const { scanDirs } = readConfig();
+  const { scanDirs } = resolveConfig();
   log.info(`Source (main): ${main.path}`);
 
   const plans = targets.map((target) => ({

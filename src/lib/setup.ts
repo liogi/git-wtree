@@ -3,7 +3,6 @@ import fs from "fs";
 import path from "path";
 import { log } from "@clack/prompts";
 import { detectPackageManager, hasScript } from "./packageManager.js";
-import type { WtreeConfig } from "./config.js";
 
 function hasPackageJson(root: string): boolean {
   return fs.existsSync(path.join(root, "package.json"));
@@ -14,9 +13,9 @@ function hasPackageJson(root: string): boolean {
 // is present; nothing otherwise — so non-Node repos stay untouched.
 export function resolveSetupCommands(
   worktreePath: string,
-  config: WtreeConfig,
+  setup: string[] | "auto" | undefined,
 ): string[] {
-  if (Array.isArray(config.setup)) return config.setup;
+  if (Array.isArray(setup)) return setup;
 
   if (!hasPackageJson(worktreePath)) return [];
 

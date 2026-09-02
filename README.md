@@ -50,12 +50,13 @@ Both write a _static_ block (no `gitwtree` call at shell startup), so it's robus
 | `gwt switch [query]`                | `cd` to another worktree (needs the shell integration)        |
 | `gwt shell-init [--install]`        | Install (or print) the shell integration; `--uninstall` too   |
 | `gwt doctor`                        | Diagnose the install (integration present + version, git)     |
+| `gwt trust`                         | Approve this repo's `.gitwtree.json` to run its commands      |
 | `gwt sync-env [query] [--apply]`    | Re-copy `.env` from main into a worktree (`--all` for every)  |
 | `gwt config`                        | Show current configuration                                    |
 | `gwt config ide`                    | Configure your IDE                                            |
-| `gwt config scan-dirs [dirs]`       | Set directories to scan for `.env` files                      |
-| `gwt config setup [commands...]`    | Post-create commands (`auto` / `none` / custom)               |
-| `gwt config teardown [commands...]` | Pre-remove commands run in the worktree (`none` to clear)     |
+| `gwt config scan-dirs [dirs]`       | Set directories to scan for `.env` files (per project)        |
+| `gwt config setup [commands...]`    | Post-create commands, per project (`auto` / `none` / custom)  |
+| `gwt config teardown [commands...]` | Pre-remove commands, per project (`none` to clear)            |
 | `gwt config theme [on\|off]`        | Toggle per-worktree VS Code color + window title              |
 | `gwt config statusline [on\|off]`   | Toggle the Claude Code branch statusline                      |
 | `gwt help`                          | Show help                                                     |
@@ -128,7 +129,7 @@ One thing it **can't** check: a binary can't inspect the parent shell, so it can
 
 By default, `gwt add` recursively scans the repo for `.env*` files (excluding `node_modules`, `.git`, `dist`, etc.) and copies them into the new worktree.
 
-To restrict scanning to specific directories:
+To restrict scanning to specific directories (written to the project's `.gitwtree.json`):
 
 ```bash
 gwt config scan-dirs apps/api,apps/web
@@ -154,26 +155,88 @@ gwt sync-env --all            # preview across every secondary worktree
 gwt sync-env --all --apply    # copy into all of them
 ```
 
-### Setup & teardown hooks
+### Project configuration — `.gitwtree.json`
 
-`gwt add` runs a **setup** hook after creating the worktree, and `gwt rm` runs a **teardown** hook before removing it. Both run inside the worktree.
+Three settings describe the **project**, not you: which directories hold `.env` files, what to run
+after a worktree is created, and what to release before one is removed. They live in a
+`.gitwtree.json` at the repo root, meant to be committed, so a teammate who clones gets the right
+behaviour without configuring anything:
 
-**Setup** defaults to `auto`: if a `package.json` is present it runs `<package-manager> install` (plus `<pm> run prepare` when that script exists); otherwise it does nothing — so non-Node repos stay untouched. Override it with your own commands for any stack:
+```jsonc
+{
+  "scanDirs": ["apps/api", "apps/web"],
+  "setup": ["pnpm install"],
+  "teardown": ["docker compose down"]
+}
+```
+
+Your own preferences — IDE, theming, statusline — stay in the global
+`~/.config/git-wtree/config.json`. `gwt config` shows both, and tags every value with where it
+came from:
+
+```
+$ gwt config
+
+Global  ~/.config/git-wtree/config.json
+  ide:         vscode
+  theme:       on
+  statusline:  on
+
+Project  /path/to/repo/.gitwtree.json  trusted
+  scan-dirs:   apps/api, apps/web [.gitwtree.json]
+  setup:       pnpm install [.gitwtree.json]
+  teardown:    none [default]
+```
+
+The file is always read from the **main worktree**, never from the worktree being created — so a
+branch (or a fork's PR) can't change what runs on your machine, and your config doesn't shift
+under you when you switch branches.
+
+#### Trust
+
+`setup` and `teardown` are shell commands git-wtree executes. A committed file that runs commands
+is a supply-chain risk, so they only run once you've approved the file:
 
 ```bash
-gwt config setup                              # show current value
+gwt trust            # prints what it wants to run, asks, records a hash of the file
+gwt trust --revoke   # withdraw approval
+```
+
+Any later edit changes the hash and silently revokes trust, so a `git pull` that rewrites the
+commands asks again. Until then `gwt add` warns, skips the commands, and carries on with the rest.
+
+Writing through `gwt config` re-trusts the file automatically — you authored the change.
+
+**`scanDirs` never needs approval.** It is inert data, so a `.gitwtree.json` carrying only
+`scanDirs` applies with no prompt.
+
+### Setup & teardown hooks
+
+`gwt add` runs the **setup** hook after creating the worktree, and `gwt rm` runs the **teardown**
+hook before removing it. Both run inside the worktree.
+
+**Setup** defaults to `auto`: if a `package.json` is present it runs `<package-manager> install`
+(plus `<pm> run prepare` when that script exists); otherwise it does nothing — so non-Node repos
+stay untouched. Override it for any stack:
+
+```bash
+gwt config setup                              # show current value and where it comes from
 gwt config setup "bundle install"             # Ruby
 gwt config setup "go mod download" "make dev" # multiple commands, in order
 gwt config setup none                         # do nothing
 gwt config setup auto                         # back to auto-detection
 ```
 
-**Teardown** is empty by default. Use it to release resources tied to a worktree (databases, containers, ports) before it's deleted. If a teardown command fails, removal is aborted unless you pass `--force`:
+**Teardown** is empty by default. Use it to release resources tied to a worktree (databases,
+containers, ports) before it's deleted. If a teardown command fails, removal is aborted unless you
+pass `--force`:
 
 ```bash
 gwt config teardown "docker compose down"
 gwt config teardown none                      # clear
 ```
+
+Both write to `.gitwtree.json`, so they must be run inside a repo.
 
 ### Removing worktrees
 

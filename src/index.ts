@@ -10,6 +10,7 @@ import { commandShellInit } from "./commands/shellInit.js";
 import { commandDoctor } from "./commands/doctor.js";
 import { commandPr } from "./commands/pr.js";
 import { commandSyncEnv } from "./commands/syncEnv.js";
+import { commandTrust } from "./commands/trust.js";
 import {
   commandConfigIde,
   commandConfigScanDirs,
@@ -32,7 +33,7 @@ program
   .version(pkg.version)
   .addHelpText(
     "after",
-    '\nAlias: gwt <command>\n\nExamples:\n  gwt add my-feature\n  gwt pr 1234\n  gwt open my-feature\n  gwt switch my-feature   (needs: gitwtree shell-init --install)\n  gwt rm my-feature --force\n  gwt sync-env --all --apply\n  gwt config setup "yarn install" "yarn build"',
+    '\nAlias: gwt <command>\n\nExamples:\n  gwt add my-feature\n  gwt pr 1234\n  gwt open my-feature\n  gwt switch my-feature   (needs: gitwtree shell-init --install)\n  gwt rm my-feature --force\n  gwt sync-env --all --apply\n  gwt config setup "yarn install" "yarn build"\n  gwt trust',
   );
 
 program
@@ -115,6 +116,14 @@ program
     (query: string | undefined, options: { apply?: boolean; all?: boolean }) =>
       commandSyncEnv(query, options),
   );
+
+program
+  .command("trust")
+  .description(
+    "Approve this repo's .gitwtree.json to run its setup/teardown commands",
+  )
+  .option("--revoke", "Withdraw approval for this repo")
+  .action((options: { revoke?: boolean }) => commandTrust(options));
 
 program
   .command("doctor")
