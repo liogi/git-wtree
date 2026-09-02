@@ -32,13 +32,25 @@ export async function commandRm(
     process.exit(1);
   }
 
-  const confirmed = await confirm({
-    message: `Remove worktree at ${worktreePath}?`,
-  });
+  // clack cannot open a prompt without a TTY — it dies with a raw
+  // `uv_tty_init returned EINVAL`. Removal is destructive, so a script that
+  // cannot be asked has to say up front that it means it.
+  if (!process.stdin.isTTY) {
+    if (!options.force) {
+      log.error(
+        "Removing needs a terminal to confirm. Re-run with --force to remove without asking.",
+      );
+      process.exit(1);
+    }
+  } else {
+    const confirmed = await confirm({
+      message: `Remove worktree at ${worktreePath}?`,
+    });
 
-  if (isCancel(confirmed) || !confirmed) {
-    cancel("Cancelled");
-    process.exit(0);
+    if (isCancel(confirmed) || !confirmed) {
+      cancel("Cancelled");
+      process.exit(0);
+    }
   }
 
   const project = resolveConfig();
@@ -63,9 +75,13 @@ export async function commandRm(
   }
 
   if (branchExists(actualBranch)) {
-    const deleteBranch = await confirm({
-      message: `Also delete local branch '${actualBranch}'?`,
-    });
+    // Deleting the branch is a second, separate act of destruction. With nobody
+    // to ask, keep it — the worktree is already gone, which is what was asked.
+    const deleteBranch = process.stdin.isTTY
+      ? await confirm({
+          message: `Also delete local branch '${actualBranch}'?`,
+        })
+      : false;
 
     if (!isCancel(deleteBranch) && deleteBranch) {
       try {
@@ -75,6 +91,10 @@ export async function commandRm(
         log.warn(`Could not delete branch: ${(e as Error).message}`);
       }
     }
+  }
+
+  if (!process.stdin.isTTY && branchExists(actualBranch)) {
+    log.info(`Local branch '${actualBranch}' kept (no terminal to ask).`);
   }
 
   outro(`Worktree '${actualBranch}' removed`);

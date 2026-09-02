@@ -5,11 +5,13 @@ on:
     branches: [main]
   pull_request:
 
-# A bot-opened dependency PR is only useful if something verifies it. This is that
-# something: it type-checks (tsc is the build), then boots the built CLI on every
-# Node version `engines` claims to support.
+# `npm test` builds, type-checks the tests, then runs them against the built
+# binary. The security-critical assertions that used to live here as bash — a
+# branch name must not execute, an unapproved .gitwtree.json must not run, add
+# must not discard unpushed commits — are tests now, so they can be run locally
+# with one command instead of being copy-pasted out of this file.
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -27,128 +29,6 @@ jobs:
 
       - run: npm ci
 
-      # `npm run build` is `tsc` — compiling is the type check.
-      - run: npm run build
-
-      # Smoke test: a clean `tsc` says nothing about whether the binary starts.
-      # These run the real entrypoint against the checked-out repo (itself a git
-      # worktree), covering arg parsing, git plumbing, and config reads.
-      - name: Smoke — CLI boots
-        run: |
-          node dist/index.js --version
-          node dist/index.js ls
-          node dist/index.js doctor
-          node dist/index.js config
-
-      # `gwt add` resets an existing branch to its remote. That reset used to
-      # discard local commits silently — real work, gone with no prompt. The
-      # non-interactive default must be to keep them.
-      - name: Smoke — add does not silently discard unpushed commits
-        run: |
-          gwt="$GITHUB_WORKSPACE/dist/index.js"
-          tmp="$(mktemp -d)"
-          git init -q --bare "$tmp/origin.git"
-          git clone -q "$tmp/origin.git" "$tmp/repo"
-          cd "$tmp/repo"
-          git config user.email ci@example.com
-          git config user.name CI
-
-          # Runners have no init.defaultBranch, so the clone's unborn HEAD is not
-          # necessarily `main`. Name it explicitly rather than inheriting it.
-          git checkout -q -b main
-          git commit -q --allow-empty -m base
-          git push -q -u origin main
-          git checkout -q -b feature
-          git commit -q --allow-empty -m pushed
-          git push -q -u origin feature
-          git commit -q --allow-empty -m "unpushed work"
-          git checkout -q main
-
-          node "$gwt" add feature
-          if [ "$(git log --oneline origin/feature..feature | wc -l)" -ne 1 ]; then
-            echo "REGRESSION: gwt add discarded an unpushed commit"
-            exit 1
-          fi
-
-          # --force is the documented way to reset anyway.
-          git worktree remove ../repo-feature --force
-          node "$gwt" add feature --force
-          if [ -n "$(git log --oneline origin/feature..feature)" ]; then
-            echo "REGRESSION: --force did not reset"
-            exit 1
-          fi
-
-      # Branch names must reach git as argv entries, never as shell input. Git
-      # refnames legitimately allow `"`, `$`, backticks and `;`, and `gwt pr`
-      # checks out branches named by people we do not control — so a regression
-      # from execFileSync back to execSync here is remote code execution.
-      # git printing `error: branch '…' not found` is the expected — and desired —
-      # outcome: it means git received the payload as a name, not as a command.
-      - name: Smoke — a branch name cannot execute commands
-        env:
-          PAYLOAD: 'a";touch /tmp/gwt-injection-canary;"b'
-        run: |
-          rm -f /tmp/gwt-injection-canary
-
-          node --input-type=module -e '
-            const git = await import(new URL("dist/lib/git.js", `file://${process.cwd()}/`).href);
-            const p = process.env.PAYLOAD;
-            git.branchExists(p);
-            git.remoteBranchExists(p);
-            try { git.deleteLocalBranch(p); } catch {}
-          '
-
-          if [ -e /tmp/gwt-injection-canary ]; then
-            echo "SECURITY REGRESSION: a branch name was executed as a shell command"
-            exit 1
-          fi
-
-      # The security property of .gitwtree.json: a file the user has not approved
-      # must never get its commands executed. Cheap to assert, and the one
-      # regression in this project that would be actively dangerous.
-      - name: Smoke — untrusted .gitwtree.json cannot execute
-        run: |
-          gwt="$GITHUB_WORKSPACE/dist/index.js"
-          repo="$(mktemp -d)/repo"
-          mkdir -p "$repo"
-          cd "$repo"
-          git init -q -b main .
-          git -c user.email=ci@example.com -c user.name=CI commit -q --allow-empty -m init
-
-          canary=/tmp/gwt-should-not-run
-          rm -f "$canary"
-          printf '{"setup":["touch %s"]}\n' "$canary" > .gitwtree.json
-
-          node "$gwt" add feature
-          if [ -e "$canary" ]; then
-            echo "SECURITY REGRESSION: an unapproved setup command was executed"
-            exit 1
-          fi
-
-          # scanDirs is inert data — it must apply with no approval at all.
-          printf '{"scanDirs":["apps/api"]}\n' > .gitwtree.json
-          node "$gwt" config | grep -q 'apps/api'
-
-      # The riskiest code path in the project: it edits the user's shell rc.
-      # `--rc` points it at a throwaway file so CI can exercise install →
-      # idempotent re-install → uninstall without touching the runner's HOME.
-      - name: Smoke — shell-init round-trip
-        run: |
-          rc="$(mktemp)"
-          printf 'export PATH=/pre-existing\n' > "$rc"
-
-          node dist/index.js shell-init zsh --install --rc "$rc"
-          grep -q '# >>> git-wtree' "$rc"
-
-          # Re-installing must replace the block, not stack a second one.
-          node dist/index.js shell-init zsh --install --rc "$rc"
-          count="$(grep -c '# >>> git-wtree' "$rc")"
-          [ "$count" -eq 1 ] || { echo "expected 1 block, found $count"; cat "$rc"; exit 1; }
-
-          node dist/index.js shell-init zsh --uninstall --rc "$rc"
-          if grep -q 'git-wtree' "$rc"; then
-            echo "block survived uninstall"; cat "$rc"; exit 1
-          fi
-
-          # The user's own content must come back untouched.
-          grep -q 'export PATH=/pre-existing' "$rc"
+      # No git identity step: the fixtures set user.name/user.email per repo, so
+      # the suite passes with an empty global config (verified).
+      - run: npm test
