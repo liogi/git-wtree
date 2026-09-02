@@ -41,6 +41,31 @@ jobs:
           node dist/index.js doctor
           node dist/index.js config
 
+      # Branch names must reach git as argv entries, never as shell input. Git
+      # refnames legitimately allow `"`, `$`, backticks and `;`, and `gwt pr`
+      # checks out branches named by people we do not control — so a regression
+      # from execFileSync back to execSync here is remote code execution.
+      # git printing `error: branch '…' not found` is the expected — and desired —
+      # outcome: it means git received the payload as a name, not as a command.
+      - name: Smoke — a branch name cannot execute commands
+        env:
+          PAYLOAD: 'a";touch /tmp/gwt-injection-canary;"b'
+        run: |
+          rm -f /tmp/gwt-injection-canary
+
+          node --input-type=module -e '
+            const git = await import(new URL("dist/lib/git.js", `file://${process.cwd()}/`).href);
+            const p = process.env.PAYLOAD;
+            git.branchExists(p);
+            git.remoteBranchExists(p);
+            try { git.deleteLocalBranch(p); } catch {}
+          '
+
+          if [ -e /tmp/gwt-injection-canary ]; then
+            echo "SECURITY REGRESSION: a branch name was executed as a shell command"
+            exit 1
+          fi
+
       # The security property of .gitwtree.json: a file the user has not approved
       # must never get its commands executed. Cheap to assert, and the one
       # regression in this project that would be actively dangerous.

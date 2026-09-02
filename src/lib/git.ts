@@ -1,4 +1,4 @@
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 import path from "path";
 import fs from "fs";
 
@@ -8,14 +8,43 @@ export interface WorktreeEntry {
   isMain: boolean;
 }
 
+// Every git and gh invocation below goes through execFileSync with an argument
+// ARRAY, so no shell ever parses these strings and a branch name is data rather
+// than code. That matters more here than in most tools: git refnames legitimately
+// allow `"`, `$`, backticks, `;` and `|` (only spaces, `~^:?*[\` and controls are
+// rejected), and `gwt pr` exists precisely to check out branches named by people
+// we do not control. Interpolating a name into a single argument — `refs/heads/${b}`
+// — stays safe for the same reason: it is one argv entry, not a command line.
+
+/** Runs a command and returns its trimmed stdout. Throws on a non-zero exit. */
+function run(file: string, args: string[], cwd?: string): string {
+  return execFileSync(file, args, {
+    cwd,
+    encoding: "utf-8",
+    stdio: ["ignore", "pipe", "pipe"],
+  }).trim();
+}
+
+/** Runs a command with its output on the terminal, so the user sees git working. */
+function runVisible(file: string, args: string[], cwd?: string): void {
+  execFileSync(file, args, { cwd, stdio: "inherit" });
+}
+
+/** True when the command exits 0. Never throws, never prints. */
+function succeeds(file: string, args: string[], cwd?: string): boolean {
+  try {
+    execFileSync(file, args, { cwd, stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function getRepoRoot(): string {
   try {
-    return execSync("git rev-parse --show-toplevel", {
-      encoding: "utf-8",
-      // Silence git's own "fatal: not a git repository" on stderr; we surface a
-      // clean message instead.
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
+    // stderr is piped rather than inherited so git's own "fatal: not a git
+    // repository" stays quiet; we surface a clean message instead.
+    return run("git", ["rev-parse", "--show-toplevel"]);
   } catch {
     throw new Error("Not inside a git repository");
   }
@@ -37,14 +66,12 @@ export function getWorktreePath(branch: string): string {
 }
 
 export function branchExists(branch: string): boolean {
-  try {
-    execSync(`git show-ref --verify --quiet refs/heads/${branch}`, {
-      stdio: "ignore",
-    });
-    return true;
-  } catch {
-    return false;
-  }
+  return succeeds("git", [
+    "show-ref",
+    "--verify",
+    "--quiet",
+    `refs/heads/${branch}`,
+  ]);
 }
 
 export function worktreeExists(worktreePath: string): boolean {
@@ -54,33 +81,27 @@ export function worktreeExists(worktreePath: string): boolean {
 export function fetchBranch(branch: string): void {
   const root = getRepoRoot();
   try {
-    execSync(`git fetch origin "${branch}"`, { cwd: root, stdio: "inherit" });
+    runVisible("git", ["fetch", "origin", branch], root);
   } catch {
     // remote may not exist, continue anyway
   }
 }
 
 export function remoteBranchExists(branch: string): boolean {
-  try {
-    execSync(`git show-ref --verify --quiet refs/remotes/origin/${branch}`, {
-      stdio: "ignore",
-    });
-    return true;
-  } catch {
-    return false;
-  }
+  return succeeds("git", [
+    "show-ref",
+    "--verify",
+    "--quiet",
+    `refs/remotes/origin/${branch}`,
+  ]);
 }
 
 export function resetToRemote(worktreePath: string, branch: string): void {
-  execSync(`git reset --hard origin/${branch}`, {
-    cwd: worktreePath,
-    stdio: "inherit",
-  });
+  runVisible("git", ["reset", "--hard", `origin/${branch}`], worktreePath);
 }
 
 export function deleteLocalBranch(branch: string): void {
-  const root = getRepoRoot();
-  execSync(`git branch -D "${branch}"`, { cwd: root, stdio: "inherit" });
+  runVisible("git", ["branch", "-D", branch], getRepoRoot());
 }
 
 export function addWorktree(
@@ -89,64 +110,41 @@ export function addWorktree(
   from?: string,
 ): void {
   const root = getRepoRoot();
-  if (branchExists(branch)) {
-    execSync(`git worktree add "${worktreePath}" "${branch}"`, {
-      cwd: root,
-      stdio: "inherit",
-    });
-  } else {
-    const base = from ? `"${from}"` : "";
-    execSync(
-      `git worktree add "${worktreePath}" -b "${branch}" ${base}`.trim(),
-      {
-        cwd: root,
-        stdio: "inherit",
-      },
-    );
-  }
+  const args = branchExists(branch)
+    ? ["worktree", "add", worktreePath, branch]
+    : ["worktree", "add", worktreePath, "-b", branch, ...(from ? [from] : [])];
+  runVisible("git", args, root);
 }
 
 export function removeWorktree(worktreePath: string): void {
   const root = getRepoRoot();
-  execSync(`git worktree remove "${worktreePath}" --force`, {
-    cwd: root,
-    stdio: "inherit",
-  });
-  execSync("git worktree prune", { cwd: root, stdio: "inherit" });
+  runVisible("git", ["worktree", "remove", worktreePath, "--force"], root);
+  runVisible("git", ["worktree", "prune"], root);
 }
 
 function isTracked(worktreePath: string, relPath: string): boolean {
-  try {
-    execSync(`git ls-files --error-unmatch "${relPath}"`, {
-      cwd: worktreePath,
-      stdio: "ignore",
-    });
-    return true;
-  } catch {
-    return false;
-  }
+  return succeeds(
+    "git",
+    ["ls-files", "--error-unmatch", relPath],
+    worktreePath,
+  );
 }
 
 // Keeps a worktree-local file out of git status: skip-worktree for tracked files,
 // or the worktree's local info/exclude for untracked ones. No effect on the shared .gitignore.
 export function hideFromGit(worktreePath: string, relPath: string): void {
   if (isTracked(worktreePath, relPath)) {
-    try {
-      execSync(`git update-index --skip-worktree "${relPath}"`, {
-        cwd: worktreePath,
-        stdio: "ignore",
-      });
-    } catch {
-      // best effort
-    }
+    // best effort
+    succeeds("git", ["update-index", "--skip-worktree", relPath], worktreePath);
     return;
   }
 
   try {
-    const excludeRel = execSync("git rev-parse --git-path info/exclude", {
-      cwd: worktreePath,
-      encoding: "utf-8",
-    }).trim();
+    const excludeRel = run(
+      "git",
+      ["rev-parse", "--git-path", "info/exclude"],
+      worktreePath,
+    );
     const excludePath = path.isAbsolute(excludeRel)
       ? excludeRel
       : path.join(worktreePath, excludeRel);
@@ -164,12 +162,7 @@ export function hideFromGit(worktreePath: string, relPath: string): void {
 }
 
 export function ghAvailable(): boolean {
-  try {
-    execSync("command -v gh", { stdio: "ignore" });
-    return true;
-  } catch {
-    return false;
-  }
+  return succeeds("gh", ["--version"]);
 }
 
 export interface OpenPr {
@@ -181,9 +174,10 @@ export interface OpenPr {
 
 // Lists open PRs via gh (requires gh). Used to power the `gwt pr` picker.
 export function listOpenPrs(root: string): OpenPr[] {
-  const out = execSync(
-    "gh pr list --json number,title,headRefName,author --limit 50",
-    { cwd: root, encoding: "utf-8" },
+  const out = run(
+    "gh",
+    ["pr", "list", "--json", "number,title,headRefName,author", "--limit", "50"],
+    root,
   );
   const raw = JSON.parse(out) as Array<{
     number: number;
@@ -207,30 +201,15 @@ export function createWorktreeFromPrGh(
   prNumber: string,
   worktreePath: string,
 ): string {
-  execSync(`git worktree add --detach "${worktreePath}"`, {
-    cwd: root,
-    stdio: "inherit",
-  });
+  runVisible("git", ["worktree", "add", "--detach", worktreePath], root);
   try {
-    execSync(`gh pr checkout ${prNumber}`, {
-      cwd: worktreePath,
-      stdio: "inherit",
-    });
+    runVisible("gh", ["pr", "checkout", prNumber], worktreePath);
   } catch (e) {
-    try {
-      execSync(`git worktree remove "${worktreePath}" --force`, {
-        cwd: root,
-        stdio: "ignore",
-      });
-    } catch {
-      // leave it for manual cleanup if removal also fails
-    }
+    // leave it for manual cleanup if removal also fails
+    succeeds("git", ["worktree", "remove", worktreePath, "--force"], root);
     throw new Error(`gh pr checkout failed: ${(e as Error).message}`);
   }
-  return execSync("git rev-parse --abbrev-ref HEAD", {
-    cwd: worktreePath,
-    encoding: "utf-8",
-  }).trim();
+  return run("git", ["rev-parse", "--abbrev-ref", "HEAD"], worktreePath);
 }
 
 // Fallback without gh: fetch the PR head into a local pr-<n> branch (review only).
@@ -240,39 +219,28 @@ export function createWorktreeFromPrFetch(
   worktreePath: string,
 ): string {
   const branch = `pr-${prNumber}`;
-  execSync(`git fetch origin "pull/${prNumber}/head:${branch}"`, {
-    cwd: root,
-    stdio: "inherit",
-  });
-  execSync(`git worktree add "${worktreePath}" "${branch}"`, {
-    cwd: root,
-    stdio: "inherit",
-  });
+  runVisible("git", ["fetch", "origin", `pull/${prNumber}/head:${branch}`], root);
+  runVisible("git", ["worktree", "add", worktreePath, branch], root);
   return branch;
 }
 
 // True if the worktree has uncommitted changes, untracked files, or commits not
 // pushed to its upstream. Used to guard against accidental data loss on remove.
 export function isWorktreeDirty(worktreePath: string): boolean {
-  const status = execSync("git status --porcelain", {
-    cwd: worktreePath,
-    encoding: "utf-8",
-  }).trim();
+  const status = run("git", ["status", "--porcelain"], worktreePath);
   if (status.length > 0) return true;
 
   try {
-    const upstream = execSync(
-      "git rev-parse --abbrev-ref --symbolic-full-name @{u}",
-      {
-        cwd: worktreePath,
-        encoding: "utf-8",
-        stdio: ["pipe", "pipe", "ignore"],
-      },
-    ).trim();
-    const ahead = execSync(`git rev-list --count ${upstream}..HEAD`, {
-      cwd: worktreePath,
-      encoding: "utf-8",
-    }).trim();
+    const upstream = run(
+      "git",
+      ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
+      worktreePath,
+    );
+    const ahead = run(
+      "git",
+      ["rev-list", "--count", `${upstream}..HEAD`],
+      worktreePath,
+    );
     return ahead !== "0";
   } catch {
     // No upstream configured — uncommitted/untracked already checked above.
@@ -282,10 +250,7 @@ export function isWorktreeDirty(worktreePath: string): boolean {
 
 export function listWorktrees(): WorktreeEntry[] {
   const root = getRepoRoot();
-  const output = execSync("git worktree list --porcelain", {
-    cwd: root,
-    encoding: "utf-8",
-  });
+  const output = run("git", ["worktree", "list", "--porcelain"], root);
 
   const entries: WorktreeEntry[] = [];
   const blocks = output.trim().split("\n\n");

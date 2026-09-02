@@ -1,4 +1,4 @@
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 import { intro, outro, log } from "@clack/prompts";
 import {
   VERSION,
@@ -16,7 +16,7 @@ export function commandDoctor(): void {
   intro("gwt doctor");
 
   try {
-    const gitVersion = execSync("git --version", {
+    const gitVersion = execFileSync("git", ["--version"], {
       encoding: "utf-8",
       stdio: ["ignore", "pipe", "ignore"],
     }).trim();
