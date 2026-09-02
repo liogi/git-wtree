@@ -41,6 +41,32 @@ jobs:
           node dist/index.js doctor
           node dist/index.js config
 
+      # The security property of .gitwtree.json: a file the user has not approved
+      # must never get its commands executed. Cheap to assert, and the one
+      # regression in this project that would be actively dangerous.
+      - name: Smoke — untrusted .gitwtree.json cannot execute
+        run: |
+          gwt="$GITHUB_WORKSPACE/dist/index.js"
+          repo="$(mktemp -d)/repo"
+          mkdir -p "$repo"
+          cd "$repo"
+          git init -q -b main .
+          git -c user.email=ci@example.com -c user.name=CI commit -q --allow-empty -m init
+
+          canary=/tmp/gwt-should-not-run
+          rm -f "$canary"
+          printf '{"setup":["touch %s"]}\n' "$canary" > .gitwtree.json
+
+          node "$gwt" add feature
+          if [ -e "$canary" ]; then
+            echo "SECURITY REGRESSION: an unapproved setup command was executed"
+            exit 1
+          fi
+
+          # scanDirs is inert data — it must apply with no approval at all.
+          printf '{"scanDirs":["apps/api"]}\n' > .gitwtree.json
+          node "$gwt" config | grep -q 'apps/api'
+
       # The riskiest code path in the project: it edits the user's shell rc.
       # `--rc` points it at a throwaway file so CI can exercise install →
       # idempotent re-install → uninstall without touching the runner's HOME.

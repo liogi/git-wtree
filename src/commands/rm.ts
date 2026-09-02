@@ -6,8 +6,8 @@ import {
   isWorktreeDirty,
 } from "../lib/git.js";
 import { resolveWorktree } from "../lib/resolveWorktree.js";
-import { readConfig } from "../lib/config.js";
 import { runCommands } from "../lib/setup.js";
+import { resolveConfig, REPO_CONFIG_FILE } from "../lib/repoConfig.js";
 
 export async function commandRm(
   query?: string,
@@ -41,9 +41,14 @@ export async function commandRm(
     process.exit(0);
   }
 
-  const config = readConfig();
-  if (config.teardown && config.teardown.length > 0) {
-    const ok = runCommands(worktreePath, config.teardown, "teardown");
+  const project = resolveConfig();
+  if (project.withheld) {
+    log.warn(
+      `${REPO_CONFIG_FILE} declares teardown commands but is not trusted — skipping them.\n   Review them with \`gwt trust\`.`,
+    );
+  }
+  if (project.teardown.length > 0) {
+    const ok = runCommands(worktreePath, project.teardown, "teardown");
     if (!ok && !options.force) {
       log.error("Teardown failed. Aborting removal (use --force to override).");
       process.exit(1);
