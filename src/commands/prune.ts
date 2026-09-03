@@ -13,6 +13,7 @@ import {
 } from "../lib/git.js";
 import { resolveConfig, REPO_CONFIG_FILE } from "../lib/repoConfig.js";
 import { runCommands } from "../lib/setup.js";
+import { requestCd } from "../lib/shellCd.js";
 
 interface Verdict {
   worktree: WorktreeEntry;
@@ -150,6 +151,10 @@ export async function commandPrune(
 
   // Same trap as `gwt rm`: one of the worktrees about to go may be the one we
   // are standing in.
+  const cwd = process.cwd();
+  const standingInDoomed = removable.some(({ worktree }) =>
+    cwd.startsWith(worktree.path),
+  );
   process.chdir(main.path);
 
   let removed = 0;
@@ -172,6 +177,16 @@ export async function commandPrune(
   // Branches are deliberately left alone: removing a worktree frees a directory,
   // deleting a branch discards history. `gwt rm` asks before doing the second,
   // and a bulk command is the wrong place to decide it for you.
+  if (standingInDoomed) {
+    if (requestCd(main.path)) {
+      log.info(`Returned to ${main.path}`);
+    } else {
+      log.warn(
+        `You are in a directory that no longer exists. Run:\n   cd ${main.path}`,
+      );
+    }
+  }
+
   log.info("Branches were kept — delete them yourself if you want them gone.");
   outro(`Removed ${removed} worktree(s).`);
 }

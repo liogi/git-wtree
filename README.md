@@ -172,6 +172,8 @@ gwt switch              # no query → arrow-key picker
 gwt sw my-feature       # alias
 ```
 
+Removing the worktree you are standing in returns you to the main worktree rather than leaving your shell in a directory that no longer exists — `gwt rm` and `gwt prune` both do this.
+
 `query` is a substring match on the branch name. If it matches exactly one worktree you go straight there; if it's ambiguous or omitted, you get an arrow-key picker (same style as the rest of the prompts). (`gwt path [query]` is the underlying primitive the wrapper calls — it resolves the worktree and writes the path back to the wrapper.)
 
 ### `gwt doctor`

@@ -33,6 +33,11 @@ function describe(entry: WorktreeEntry): string {
   return parts.join(pc.dim(" · "));
 }
 
+// "(main)" collided with the branch name it usually sits next to: on the main
+// worktree with a feature branch checked out, `feature/x (main)` read as a
+// contradiction. "primary" says the same thing about the worktree without
+// borrowing a word branches already use. Not "root" — that is the repository
+// root, a different thing once worktrees exist.
 export function commandLs(): void {
   let worktrees: WorktreeEntry[];
   try {
@@ -44,7 +49,7 @@ export function commandLs(): void {
 
   console.log("");
   for (const wt of worktrees) {
-    const tag = wt.isMain ? ` ${pc.green("(main)")}` : "";
+    const tag = wt.isMain ? ` ${pc.green("(primary)")}` : "";
     console.log(`  ${pc.bold(pc.cyan(wt.branch))}${tag}  ${describe(wt)}`);
     console.log(`  ${pc.dim(wt.path)}`);
     console.log("");

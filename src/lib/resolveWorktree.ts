@@ -41,7 +41,7 @@ export async function resolveWorktree(
     message: "Select a worktree",
     options: candidates.map((w) => ({
       value: w.path,
-      label: `${w.branch}${w.isMain ? " (main)" : ""}`,
+      label: `${w.branch}${w.isMain ? " (primary)" : ""}`,
       hint: w.path,
     })),
   });
