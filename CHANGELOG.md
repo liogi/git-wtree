@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.8.1
+
+Nothing to reinstall — the shell wrapper is unchanged.
 
 ### Fixed
 
@@ -12,6 +14,9 @@
   worktree with no `.env` at all and only "No .env files found to copy" to explain
   it. Both now resolve the main worktree, the same rule `gwt sync-env` already
   documented.
+
+- `npm pkg fix`: normalised the `bin` paths npm was correcting at publish time,
+  and unescaped the author name. No change to what is installed.
 
 ## 0.8.0
 
