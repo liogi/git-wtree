@@ -5,12 +5,18 @@ import path from "node:path";
 import { tmpDir, tmpRepo, runCli } from "./helpers/fixtures.ts";
 import { wrapperRev } from "../dist/lib/shellIntegration.js";
 
+// doctor resolves the rc and the wrapper from $SHELL, so every case here pins
+// it. Without that the fixture installs the zsh wrapper while doctor looks for
+// the bash one on any machine whose default shell is not zsh — which is every
+// CI runner, and was not this laptop.
+const ZSH = { SHELL: "/bin/zsh" };
+
 /** A home with the integration installed, so doctor has something to report on. */
 function installedHome(): string {
   const home = tmpDir("home-");
   // No --rc: doctor reads the shell's real rc path, which under this HOME is
   // <home>/.zshrc. Overriding it here would make doctor look elsewhere.
-  runCli(["shell-init", "zsh", "--install"], { cwd: tmpRepo(), home });
+  runCli(["shell-init", "zsh", "--install"], { cwd: tmpRepo(), home, env: ZSH });
   return home;
 }
 
@@ -84,14 +90,17 @@ describe("gwt doctor sees the shell", () => {
   const repo = tmpRepo();
 
   test("reports the integration inactive when the variable is unset", () => {
-    const r = runCli(["doctor"], { cwd: repo, env: { GWT_SHELL_INTEGRATION: "" } });
+    const r = runCli(["doctor"], {
+      cwd: repo,
+      env: { ...ZSH, GWT_SHELL_INTEGRATION: "" },
+    });
     assert.match(r.output, /Not active in this shell/i);
   });
 
   test("reports it active, and says gwt is the function", () => {
     const r = runCli(["doctor"], {
       cwd: repo,
-      env: { GWT_SHELL_INTEGRATION: wrapperRev("zsh") },
+      env: { ...ZSH, GWT_SHELL_INTEGRATION: wrapperRev("zsh") },
       home: installedHome(),
     });
     assert.match(r.output, /Active in this shell/);
@@ -103,7 +112,7 @@ describe("gwt doctor sees the shell", () => {
   test("tells a stale shell to open a new terminal, not to reinstall", () => {
     const r = runCli(["doctor"], {
       cwd: repo,
-      env: { GWT_SHELL_INTEGRATION: "0ldrev00" },
+      env: { ...ZSH, GWT_SHELL_INTEGRATION: "0ldrev00" },
       home: installedHome(),
     });
     assert.match(r.output, /older wrapper/);
@@ -112,7 +121,7 @@ describe("gwt doctor sees the shell", () => {
   });
 
   test("asks for an install only when the loader really is missing", () => {
-    const r = runCli(["doctor"], { cwd: repo, home: tmpDir("home-") });
+    const r = runCli(["doctor"], { cwd: repo, home: tmpDir("home-"), env: ZSH });
     assert.match(r.output, /No git-wtree loader/);
     assert.match(r.output, /shell-init --install/);
   });
