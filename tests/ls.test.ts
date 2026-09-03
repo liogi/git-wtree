@@ -116,3 +116,49 @@ describe("gwt ls", () => {
     assert.match(r.stdout, new RegExp(repo.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   });
 });
+
+// `isMain` compared each worktree against getRepoRoot() — the CURRENT worktree,
+// not the main one. From inside a secondary worktree `ls` labelled it "(main)"
+// and `rm` refused to remove it as though it were the main tree.
+describe("(main) marks the main worktree, wherever you run from", () => {
+  test("the label follows the main worktree, not the cwd", () => {
+    const repo = tmpRepo();
+    runCli(["add", "secondary"], { cwd: repo });
+    const secondary = path.join(
+      path.dirname(repo),
+      `${path.basename(repo)}-secondary`,
+    );
+
+    for (const cwd of [repo, secondary]) {
+      const lines = runCli(["ls"], { cwd, env: { NO_COLOR: "1" } }).stdout.split("\n");
+      const tagged = lines.filter((l) => l.includes("(main)"));
+      assert.equal(tagged.length, 1, `exactly one (main) from ${cwd}`);
+      assert.match(tagged[0], /^\s+main\b/, `it is the main branch, from ${cwd}`);
+    }
+  });
+
+  test("rm no longer mistakes a secondary worktree for the main one", () => {
+    const repo = tmpRepo();
+    runCli(["add", "secondary"], { cwd: repo });
+    const secondary = path.join(
+      path.dirname(repo),
+      `${path.basename(repo)}-secondary`,
+    );
+
+    const r = runCli(["rm", "secondary"], { cwd: secondary });
+    assert.doesNotMatch(r.output, /Cannot remove the main worktree/);
+  });
+
+  test("rm still refuses the real main worktree, from anywhere", () => {
+    const repo = tmpRepo();
+    runCli(["add", "secondary"], { cwd: repo });
+    const secondary = path.join(
+      path.dirname(repo),
+      `${path.basename(repo)}-secondary`,
+    );
+
+    const r = runCli(["rm", "main", "--force"], { cwd: secondary });
+    assert.equal(r.code, 1);
+    assert.match(r.output, /Cannot remove the main worktree/);
+  });
+});

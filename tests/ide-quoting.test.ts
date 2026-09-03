@@ -83,3 +83,17 @@ describe("gwt open", () => {
     assert.doesNotMatch(r.output, /uv_tty_init/, "not a raw libuv crash");
   });
 });
+
+describe("opening reports itself", () => {
+  test("gwt add --open says what it opened, like gwt open does", () => {
+    const repo = tmpRepo();
+    const home = homeWithConfig({ ide: "fake", ideCommand: "true {path}" });
+
+    const added = runCli(["add", "opened", "--open"], { cwd: repo, home });
+    assert.match(added.output, /Opened .*-opened/);
+
+    // …and `gwt open` still reports it exactly once, not twice.
+    const opened = runCli(["open", "opened"], { cwd: repo, home });
+    assert.equal((opened.output.match(/Opened /g) ?? []).length, 1);
+  });
+});

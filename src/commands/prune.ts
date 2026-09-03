@@ -5,6 +5,7 @@ import {
   getMainWorktree,
   isWorktreeDirty,
   isAncestor,
+  branchHasMoved,
   mergedPrFor,
   ghAvailable,
   removeWorktree,
@@ -19,6 +20,8 @@ interface Verdict {
   reason: string | null;
   /** Why it stays, when it otherwise could have gone. */
   blocked: string | null;
+  /** Why it stays, when it was never a candidate. */
+  kept: string;
 }
 
 // The problem the tool creates by working well: after a few months you have a
@@ -34,6 +37,20 @@ function judge(
   useGh: boolean,
   force: boolean,
 ): Verdict {
+  // A branch that was created and never committed to has no commits the base
+  // lacks, so the merge test calls it "merged into main" — a claim about
+  // something that never happened. Worse, it offers to delete a worktree you set
+  // up an hour ago: no commits are at risk, but the .env files and installed
+  // dependencies in it are. Prune is for finished work, not unstarted work.
+  if (branchHasMoved(worktree.branch, root) === false) {
+    return {
+      worktree,
+      reason: null,
+      blocked: null,
+      kept: "never committed to — nothing to clean up",
+    };
+  }
+
   let reason: string | null = null;
 
   if (isAncestor(worktree.branch, base, root)) {
@@ -43,15 +60,21 @@ function judge(
     if (pr !== null) reason = `PR #${pr} merged`;
   }
 
-  if (reason === null) return { worktree, reason: null, blocked: null };
+  if (reason === null)
+    return { worktree, reason: null, blocked: null, kept: "not merged" };
 
   // Merged and still holding uncommitted work is unusual, and exactly the case
   // where deleting silently would hurt.
   if (!force && isWorktreeDirty(worktree.path)) {
-    return { worktree, reason, blocked: "has uncommitted or unpushed work" };
+    return {
+      worktree,
+      reason,
+      blocked: "has uncommitted or unpushed work",
+      kept: "",
+    };
   }
 
-  return { worktree, reason, blocked: null };
+  return { worktree, reason, blocked: null, kept: "" };
 }
 
 export async function commandPrune(
@@ -89,7 +112,7 @@ export async function commandPrune(
 
   for (const v of verdicts) {
     if (v.reason === null) {
-      log.step(`${pc.dim("keep")}   ${v.worktree.branch}  ${pc.dim("not merged")}`);
+      log.step(`${pc.dim("keep")}   ${v.worktree.branch}  ${pc.dim(v.kept)}`);
     } else if (v.blocked) {
       log.step(
         `${pc.yellow("skip")}   ${v.worktree.branch}  ${pc.dim(v.reason)} — ${pc.yellow(v.blocked)}`,

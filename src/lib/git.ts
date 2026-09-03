@@ -265,6 +265,31 @@ export function isWorktreeDirty(worktreePath: string): boolean {
   }
 }
 
+/**
+ * Has anything ever happened on this branch? null when we cannot tell.
+ *
+ * The commit graph cannot answer this. A branch created and never touched has
+ * no commits the base lacks — and neither does a branch whose commits were
+ * merged, because they are in the base now. Once the base moves, the two become
+ * indistinguishable by ancestry alone.
+ *
+ * The reflog can: a branch that was never committed to holds exactly its
+ * creation entry. This is the same source `git merge-base --fork-point` relies
+ * on, with the same limit — reflogs expire, and an old enough branch reports
+ * null. Callers treat null as "cannot tell" and fall back to the merge test,
+ * which is the behaviour they had before.
+ */
+export function branchHasMoved(branch: string, cwd: string): boolean | null {
+  try {
+    const out = run("git", ["reflog", "show", "--format=%gs", branch], cwd);
+    const entries = out.split("\n").filter((l) => l.trim() !== "");
+    if (entries.length === 0) return null;
+    return entries.length > 1;
+  } catch {
+    return null;
+  }
+}
+
 /** True when `ancestor` is contained in `descendant`'s history. */
 export function isAncestor(
   ancestor: string,
@@ -365,8 +390,11 @@ export function worktreeStatus(worktreePath: string): WorktreeStatus {
 }
 
 export function listWorktrees(): WorktreeEntry[] {
-  const root = getRepoRoot();
-  const output = run("git", ["worktree", "list", "--porcelain"], root);
+  const output = run(
+    "git",
+    ["worktree", "list", "--porcelain"],
+    getRepoRoot(),
+  );
 
   const entries: WorktreeEntry[] = [];
   const blocks = output.trim().split("\n\n");
@@ -383,10 +411,14 @@ export function listWorktrees(): WorktreeEntry[] {
       ? branchLine.replace("branch refs/heads/", "")
       : "(detached)";
 
+    // `git worktree list` always prints the main working tree first, so position
+    // is the reliable signal. Comparing against getRepoRoot() compared against the
+    // CURRENT worktree instead: from inside a secondary one, `ls` labelled it
+    // "(main)" and `rm` refused to remove it as if it were the main tree.
     entries.push({
       path: wtPath,
       branch,
-      isMain: wtPath === root,
+      isMain: entries.length === 0,
     });
   }
 

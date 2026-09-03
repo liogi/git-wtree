@@ -111,4 +111,7 @@ export function openInIde(worktreePath: string): void {
 
   const cmd = config.ideCommand.replace("{path}", shellQuote(worktreePath));
   execSync(cmd, { stdio: "ignore" });
+  // Reported here rather than by the caller, so `gwt add --open` says as much as
+  // `gwt open` does instead of launching an editor in silence.
+  log.success(`Opened ${worktreePath}`);
 }

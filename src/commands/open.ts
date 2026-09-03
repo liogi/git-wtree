@@ -24,5 +24,4 @@ export async function commandOpen(query?: string): Promise<void> {
   }
 
   openInIde(worktree.path);
-  log.success(`Opened ${worktree.path}`);
 }
