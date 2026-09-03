@@ -4,8 +4,8 @@
   "description": "Git worktree manager with .env syncing and IDE integration",
   "type": "module",
   "bin": {
-    "gitwtree": "./dist/index.js",
-    "gwt": "./dist/index.js"
+    "gitwtree": "dist/index.js",
+    "gwt": "dist/index.js"
   },
   "scripts": {
     "build": "tsc",
@@ -42,7 +42,7 @@
     "ide",
     "dev-tools"
   ],
-  "author": "Lionel Gibern\u00e9",
+  "author": "Lionel Giberné",
   "license": "MIT",
   "repository": {
     "type": "git",
