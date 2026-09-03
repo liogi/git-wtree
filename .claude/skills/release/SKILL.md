@@ -79,22 +79,62 @@ Write for someone deciding whether to upgrade, not for someone reviewing a diff.
 Keep the existing entries' voice: plain sentences, no marketing, no emoji beyond
 the one ⚠️ marker.
 
-## 5. Hand it back
+## 5. Open the PR
 
 ```bash
 git commit -am "<version>"
 git push -u origin release/<version>
-gh pr create --title "<version>" --body "<the changelog section, plus the release steps>"
+gh pr create --title "<version>" --body "<the changelog section>"
 ```
 
-Then tell the user, in this order:
+## 6. Ask before going further
 
-1. the PR link
-2. what the release requires of users, if anything
-3. that publishing is: merge → `git tag v<version> && git push --tags` → approve
-   the staged package on npmjs.com with 2FA
+Show the changelog section in the reply — the user should not have to open the
+PR to judge it — then ask with AskUserQuestion:
+
+- **question**: "Cette release te va ?"
+- **header**: "Release"
+- options:
+  1. `Oui — merger et taguer` — *"la PR est mergée, le tag poussé, le paquet mis en attente sur npm"*
+  2. `Non — laisser en l'état` — *"la branche et la PR restent, rien n'est mergé"*
+
+"Other" is offered automatically and is how the user asks for changes: rewrite
+the changelog, force-push the branch, and ask again. Do not proceed on anything
+short of the explicit yes.
+
+## 7. On yes: merge, tag, and report
+
+Wait for CI before merging — never merge a red release.
+
+```bash
+until ! gh pr checks <pr> --repo liogi/git-wtree | grep -qE "pending|no checks"; do sleep 10; done
+gh pr checks <pr> --repo liogi/git-wtree      # abort and say so if it failed
+gh pr merge <pr> --repo liogi/git-wtree --merge
+
+git checkout main && git pull
+git tag v<version> && git push --tags
+```
+
+Then watch the publish run and report what happened:
+
+```bash
+until ! gh run list --repo liogi/git-wtree --limit 1 --json status --jq '.[0].status' | grep -q in_progress; do sleep 10; done
+gh run list --repo liogi/git-wtree --limit 1
+```
+
+Finish by telling the user, in one short block:
+
+1. the version is **staged, not published** — `npm view git-wtree version` still
+   shows the previous one, and that is correct
+2. to approve it: npmjs.com → **Staged Packages** → Approve, with 2FA
+3. what the release asks of users, if anything
+
+If the publish run failed, say so plainly with the error and stop. Nothing is
+published, and the tag can be moved:
+`git tag -d v<version> && git push origin :refs/tags/v<version>`.
 
 ## What this skill does not do
 
-It does not tag and does not publish. Tagging is the explicit act that starts a
-release; it stays with the user, and CI does the rest from there.
+It does not approve the staged package. That step needs 2FA and it is the only
+thing standing between this repository and the registry — automating it would
+undo the reason staged publishing was chosen. It stays with the user, always.
