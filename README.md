@@ -414,7 +414,25 @@ Worktrees are created as siblings of your repo directory:
 
 ## Releasing
 
-Tag it; CI does the rest.
+Ask Claude Code for `/release patch` (or `minor`, `major`). It checks the tree,
+bumps the version, reads the pull requests merged since the last tag, writes the
+CHANGELOG entry from them, opens the release PR, and shows you the entry. Say yes
+and it merges, tags, and pushes; CI stages the package.
+
+```
+/release minor
+→ …changelog…
+? Cette release te va ?  Oui — merger et taguer
+→ staged. Approve it on npmjs.com.
+```
+
+You approve the staged package with 2FA. That step is never automated: it is the
+only thing between this repository and the registry, and automating it would undo
+the reason staged publishing was chosen. See `.claude/skills/release/`.
+
+The PR bodies are the material, not the commit subjects: they were written to
+explain why a change matters, which is what a changelog needs and what `git log`
+does not carry.
 
 ```bash
 git tag v1.2.3 && git push --tags
