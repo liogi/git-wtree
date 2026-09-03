@@ -147,3 +147,38 @@ describe("gwt prune", () => {
     assert.equal(existsSync(wt(repo, "merged")), false, "the prune still happens");
   });
 });
+
+// A branch created and never committed to has no commits the base lacks, so the
+// ancestry test called it "merged into main" — a claim about something that
+// never happened — and offered to delete a worktree set up minutes earlier.
+describe("untouched branches are not finished work", () => {
+  test("a branch that was never committed to is kept, and said so honestly", () => {
+    const repo = tmpRepo();
+    runCli(["add", "untouched"], { cwd: repo });
+
+    const out = runCli(["prune"], { cwd: repo, env: noGh() }).output;
+    assert.match(out, /keep\s+untouched/);
+    assert.match(out, /never committed to/);
+    assert.doesNotMatch(out, /untouched.*merged into/);
+  });
+
+  // The graph alone cannot tell these apart once the base has moved past both.
+  test("it still tells an untouched branch from a genuinely merged one", () => {
+    const repo = tmpRepo();
+    runCli(["add", "untouched"], { cwd: repo });
+    runCli(["add", "landed"], { cwd: repo });
+    git(wt(repo, "landed"), "commit", "-q", "--allow-empty", "-m", "real work");
+    git(repo, "merge", "-q", "--no-ff", "-m", "merge landed", "landed");
+
+    const out = runCli(["prune"], { cwd: repo, env: noGh() }).output;
+    assert.match(out, /remove landed\s+merged into main/);
+    assert.match(out, /keep\s+untouched/);
+  });
+
+  test("--apply leaves the untouched worktree alone", () => {
+    const repo = tmpRepo();
+    runCli(["add", "untouched"], { cwd: repo });
+    runCli(["prune", "--apply"], { cwd: repo, env: noGh() });
+    assert.ok(existsSync(wt(repo, "untouched")));
+  });
+});

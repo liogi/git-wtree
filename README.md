@@ -220,6 +220,14 @@ $ gwt prune
 Dry run — 2 worktree(s) would be removed. Re-run with --apply.
 ```
 
+A branch that was **created and never committed to** is kept, not pruned: no commits
+are at risk, but the worktree's `.env` files and installed dependencies are, and
+`prune` is for finished work rather than unstarted work.
+
+```
+◇  keep   spike/idea    never committed to — nothing to clean up
+```
+
 Two ways a branch counts as finished, because one is not enough:
 
 - it is an **ancestor** of the base — covers merge commits and rebases
