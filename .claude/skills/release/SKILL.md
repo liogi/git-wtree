@@ -104,6 +104,16 @@ short of the explicit yes.
 
 ## 7. On yes: merge, tag, and report
 
+First check which account `gh` is on. It is global state on this machine and
+another terminal working under `~/codebases/primo` flips it, so it drifts
+mid-session and `gh pr merge` then fails with "must be a collaborator" — an
+error that says nothing about the real cause.
+
+```bash
+gh api user --jq .login          # must be liogi
+# if not: gh auth switch --hostname github.com --user liogi
+```
+
 Wait for CI before merging — never merge a red release.
 
 ```bash
