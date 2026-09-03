@@ -13,6 +13,7 @@ import { commandPr } from "./commands/pr.js";
 import { commandSyncEnv } from "./commands/syncEnv.js";
 import { commandTrust } from "./commands/trust.js";
 import { commandPrune } from "./commands/prune.js";
+import { commandSwitch } from "./commands/switch.js";
 import {
   commandConfigIde,
   commandConfigScanDirs,
@@ -93,12 +94,7 @@ program
   .description(
     "Switch (cd) to another worktree (requires the shell integration)",
   )
-  .action(() => {
-    console.error(
-      "`gwt switch` needs the shell integration. Run:\n  gitwtree shell-init --install\nThen open a new terminal.",
-    );
-    process.exit(1);
-  });
+  .action((query: string | undefined) => commandSwitch(query));
 
 program
   .command("path [query]")

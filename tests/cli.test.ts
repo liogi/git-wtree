@@ -65,10 +65,12 @@ describe("the built CLI boots", () => {
     assert.match(r.output, /this shell/i);
   });
 
-  test("switch tells you to install the shell integration", () => {
-    const r = runCli(["switch", "x"], { cwd: repo });
+  test("switch says so when the shell integration is not active", () => {
+    // No GWT_CD_FILE in the environment: the wrapper is not wrapping us.
+    const r = runCli(["switch", "main"], { cwd: repo });
     assert.equal(r.code, 1);
     assert.match(r.output, /shell-init --install/);
+    assert.match(r.output, /cannot change your/i);
   });
 
   test("path resolves a worktree and can write it to a file", () => {

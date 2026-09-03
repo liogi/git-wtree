@@ -57,11 +57,31 @@ the last time an upgrade will ask. `gwt doctor` will tell you if you skip it.
 
 - **`gwt trust`** — approve, or `--revoke`, a repo's `.gitwtree.json`.
 
+- **`gwt rm` and `gwt prune` put you back where you can work.** Removing the
+  worktree you are standing in left the shell in a directory that no longer
+  exists, with nothing working until you moved yourself. (Plain
+  `git worktree remove` leaves you there too.) They now return you to the main
+  worktree, or say exactly which `cd` to run when the shell integration is not
+  active.
+
 - **Per-project configuration in `.gitwtree.json`.** `scanDirs`, `setup` and
   `teardown` describe the project, not you, and lived in a single global file
   where the second repo overwrote the first. `ide`, `theme` and `statusline` stay
   global. `gwt config` tags every value with where it resolved from. Legacy
   global keys are still read as a fallback, so nothing breaks on upgrade.
+
+### Changed
+
+- **`gwt ls` says `(primary)` where it said `(main)`.** On the main worktree with
+  a feature branch checked out, `feature/x (main)` read as a contradiction. The
+  label describes the worktree, not the branch, and no longer borrows a word
+  branches already use. Not `(root)` — that is the repository root, a different
+  thing once worktrees exist.
+
+- **The shell wrapper lost its special case.** `switch` was hard-coded into it;
+  it is a plain subcommand now. Every invocation gets a `GWT_CD_FILE`, and any
+  command that needs to move your shell writes to it — so the wrapper never has
+  to learn a new one.
 
 ### Fixed — everything else
 

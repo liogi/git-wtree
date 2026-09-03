@@ -8,6 +8,7 @@ import {
 } from "../lib/git.js";
 import { resolveWorktree } from "../lib/resolveWorktree.js";
 import { runCommands } from "../lib/setup.js";
+import { requestCd } from "../lib/shellCd.js";
 import { resolveConfig, REPO_CONFIG_FILE } from "../lib/repoConfig.js";
 
 export async function commandRm(
@@ -68,6 +69,10 @@ export async function commandRm(
     }
   }
 
+  // Captured before the chdir below, to know whether the shell is standing in
+  // the directory about to disappear.
+  const startedInside = process.cwd().startsWith(worktreePath);
+
   // Every git call from here on would inherit a cwd that is about to stop
   // existing. Removing a worktree from inside itself succeeded and then died on
   // the follow-up `git worktree prune` with `spawnSync git ENOENT` — reporting
@@ -104,6 +109,19 @@ export async function commandRm(
 
   if (!process.stdin.isTTY && branchExists(actualBranch)) {
     log.info(`Local branch '${actualBranch}' kept (no terminal to ask).`);
+  }
+
+  // The shell is now sitting in a directory that no longer exists; nothing it
+  // runs will work until it moves. git leaves you there too — we can do better,
+  // because the wrapper is listening.
+  if (startedInside && main) {
+    if (requestCd(main.path)) {
+      log.info(`Returned to ${main.path}`);
+    } else {
+      log.warn(
+        `You are in a directory that no longer exists. Run:\n   cd ${main.path}`,
+      );
+    }
   }
 
   outro(`Worktree '${actualBranch}' removed`);
