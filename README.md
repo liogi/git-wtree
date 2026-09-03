@@ -412,6 +412,27 @@ Worktrees are created as siblings of your repo directory:
   myrepo-my-feature ← worktree created by gwt
 ```
 
+## Releasing
+
+Tag it; CI does the rest.
+
+```bash
+git tag v1.2.3 && git push --tags
+```
+
+The `Publish` workflow runs the tests, refuses a tag that disagrees with
+`package.json`, and submits the build to npm through OIDC — no token anywhere.
+It **stages** rather than publishes: a maintainer approves it with 2FA before it
+goes live, so a compromised repository can propose a version and no more.
+
+```bash
+npm stage list git-wtree
+npm stage approve <id>       # asks for 2FA
+```
+
+Provenance is attached automatically, so npmjs.com shows which commit and which
+workflow produced the tarball.
+
 ## Supported IDEs
 
 VS Code, Cursor, Zed, WebStorm, IntelliJ IDEA, PyCharm, GoLand, Vim, Neovim, Sublime Text — or any custom IDE via the "Other" option in the wizard.

@@ -9,8 +9,8 @@ on:
 # This one line is the whole authentication story. GitHub mints a short-lived
 # OIDC token, npm checks it against the trusted publisher configured for this
 # repository and this workflow filename, and hands back a credential good for
-# one publish. Nothing long-lived is stored anywhere — renaming this file breaks
-# the trust, which is the trade.
+# one submission. Nothing long-lived is stored anywhere — renaming this file
+# breaks the trust, which is the trade.
 permissions:
   id-token: write
   contents: read
@@ -22,16 +22,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Node 24 for the npm it bundles: trusted publishing needs npm >= 11.5.1,
-      # and Node 22 still ships 10.9.
-      #
       # No `cache: npm` here, deliberately — npm's own guidance is to avoid
-      # caching in release builds, so that what gets published is built from
-      # what the registry serves today rather than from a restored artifact.
+      # caching in release builds, so what ships is built from what the registry
+      # serves today rather than from a restored artifact.
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
+
+      # Staged publishing needs npm >= 11.15.0 and Node 24 currently bundles
+      # 11.11, so pin it explicitly rather than depend on what the runner image
+      # happens to ship this month.
+      - run: npm install -g npm@latest
 
       - run: npm ci
 
@@ -51,7 +53,15 @@ jobs:
           fi
           echo "publishing $pkg"
 
-      # No token, no --provenance flag: publishing through OIDC attaches a
-      # signed attestation on its own, so npmjs.com can show which commit and
-      # which workflow produced this tarball.
-      - run: npm publish
+      # Staged, not published. CI can submit a build but cannot make it public:
+      # the trusted publisher is configured for `npm stage publish` only, so a
+      # compromised repository or workflow can propose a version and no more.
+      # Making it live needs `npm stage approve <id>` with 2FA, from a human.
+      #
+      # No token and no --provenance flag — OIDC attaches the attestation on its
+      # own, so npmjs.com can show which commit and which workflow built this.
+      - run: npm stage publish
+
+      - name: What happens next
+        run: |
+          echo "::notice::Staged. Approve with: npm stage list git-wtree && npm stage approve <id>"
