@@ -21,16 +21,37 @@ Stop and say so if either fails. Never prepare a release on a dirty tree.
 
 ## 2. Bump
 
+Accepts `patch`, `minor`, `major`, or an explicit version like `1.0.0`.
+
 ```bash
-npm version <patch|minor|major> --no-git-tag-version
+npm version <patch|minor|major|x.y.z> --no-git-tag-version
 git checkout -b release/$(node -p "require('./package.json').version")
 ```
 
-Choosing the type, when the user did not say:
+Choosing, when the user did not say:
 
-- **patch** — fixes only, nothing new, nothing changed for someone already using it
-- **minor** — a new command or option, or a behaviour that changes
-- **major** — only if a config format or the shell wrapper forces users to migrate
+- **patch** — fixes only; nothing new, and nothing changes for someone already
+  using it
+- **minor** — a new command or option, a behaviour that changes, **and anything
+  breaking, while the version is still 0.x**
+
+### `major` is not "there is a breaking change"
+
+While on 0.x, `major` produces **1.0.0**, which is a statement rather than an
+increment: it promises that `.gitwtree.json` and the shell wrapper will not
+force a migration again without another major. In 0.x, breaking changes belong
+in the minor — that is what 0.x is for.
+
+So never pick `major` on your own. Only when the user asks for it explicitly,
+and then check with them that they mean 1.0 and not just "this breaks
+something".
+
+The criterion agreed for 1.0: a release that forces nobody to re-run
+`gitwtree shell-init --install` and nobody to migrate `.gitwtree.json`, after
+those formats have gone some weeks without needing to change. Necessary, not
+sufficient — a quiet release the day after a noisy one proves nothing.
+
+Once past 1.0, `major` means what it usually means.
 
 ## 3. Gather the raw material
 
