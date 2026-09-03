@@ -414,7 +414,16 @@ Worktrees are created as siblings of your repo directory:
 
 ## Releasing
 
-Tag it; CI does the rest.
+Ask Claude Code for `/release patch` (or `minor`, `major`). It checks the tree,
+bumps the version, reads the pull requests merged since the last tag, writes the
+CHANGELOG entry from them, and opens the release branch — see
+`.claude/skills/release/`.
+
+The PR bodies are the material, not the commit subjects: they were written to
+explain why a change matters, which is what a changelog needs and what `git log`
+does not carry.
+
+Then tag it; CI does the rest.
 
 ```bash
 git tag v1.2.3 && git push --tags
