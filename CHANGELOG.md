@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **Sibling branches got indistinguishable colours.** `feature-a` and
+  `feature-b` landed 1° apart on the hue wheel — the same colour, to a human —
+  and so did `fix-1`/`fix-2`, `pr-101`/`pr-102`, and every other pair differing
+  in a trailing character. The hash advanced by one for an input that advanced
+  by one, and the low bits went straight into the hue. It now runs through an
+  avalanche step, so those pairs sit 85–180° apart.
+
+  This does not guarantee separation: hues are uniform over the wheel, so with
+  four worktrees some pair lands within 30° about seven times in ten. No
+  stateless function can avoid that — a colour derived only from a branch name
+  cannot know what the other branches are.
+
 ## 0.8.1
 
 Nothing to reinstall — the shell wrapper is unchanged.

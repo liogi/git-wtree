@@ -16,12 +16,27 @@ const SATURATION = 0.6;
 // 0.30 keeps white-on-color ≥ 4.5:1 (WCAG AA) across the whole hue wheel.
 const LIGHTNESS = 0.3;
 
+// A plain `h * 31 + c` hash keeps its low bits close for inputs that are close:
+// `feature-a` and `feature-b` differ by 1 in the hash and so landed 1° apart on
+// the hue wheel — indistinguishable, for exactly the sibling names people
+// actually use (feature-a/b, fix-1/2, pr-101/102). The murmur3 finalizer below
+// avalanches those bits, so one changed character moves the hue by a random
+// amount rather than by one degree.
+//
+// It does not guarantee separation: hues are then uniform over the wheel, and
+// with four worktrees some pair lands within 30° about seven times in ten. That
+// is the birthday problem, not the hash, and no stateless function can avoid it.
 function hashBranch(branch: string): number {
   let h = 0;
   for (let i = 0; i < branch.length; i++) {
-    h = (h * 31 + branch.charCodeAt(i)) >>> 0;
+    h = (Math.imul(h, 31) + branch.charCodeAt(i)) >>> 0;
   }
-  return h;
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x85ebca6b);
+  h ^= h >>> 13;
+  h = Math.imul(h, 0xc2b2ae35);
+  h ^= h >>> 16;
+  return h >>> 0;
 }
 
 function hslToHex(h: number, s: number, l: number): string {

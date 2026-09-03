@@ -52,30 +52,41 @@ describe("pickColor", () => {
     }
   });
 
-  // What matters is not "214 branches get 214 colours" — nobody has 214
-  // worktrees open, and with 360 hues collisions are expected at that scale.
-  // What matters is that the handful of worktrees open at once, whose names are
-  // usually variations on each other, are told apart.
-  test("families of similar branch names get distinct colours", () => {
-    const families: Record<string, string[]> = {
-      "feat/thing-N": Array.from({ length: 12 }, (_, i) => `feat/thing-${i + 1}`),
-      "fix/bug-N": Array.from({ length: 12 }, (_, i) => `fix/bug-${i + 1}`),
-      "pr-N": Array.from({ length: 12 }, (_, i) => `pr-${100 + i}`),
-      assorted: [
-        "main", "develop", "feat/login", "fix/parser", "chore/deps",
-        "release/1.2.3", "hotfix", "spike", "wip", "docs/readme",
-        "perf/cache", "test/e2e",
-      ],
-    };
+  // The previous version of this test asserted the colours were *different* —
+  // exact hex inequality. `feature-a` and `feature-b` passed it while sitting
+  // 1° apart on the hue wheel, which is the same colour to a human. Measuring
+  // distinctness means measuring distance.
+  function hueOf(hex: string): number {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+    const max = Math.max(r, g, b);
+    const delta = max - Math.min(r, g, b);
+    if (delta === 0) return 0;
+    const h =
+      max === r ? ((g - b) / delta) % 6 : max === g ? (b - r) / delta + 2 : (r - g) / delta + 4;
+    return (Math.round(h * 60) + 360) % 360;
+  }
 
-    for (const [name, branches] of Object.entries(families)) {
-      const distinct = new Set(branches.map((b) => pickColor(b).bg));
-      assert.equal(
-        distinct.size,
-        branches.length,
-        `${name}: ${distinct.size} colours for ${branches.length} branches`,
-      );
-    }
+  function hueGap(a: string, b: string): number {
+    const d = Math.abs(hueOf(pickColor(a).bg) - hueOf(pickColor(b).bg));
+    return Math.min(d, 360 - d);
+  }
+
+  // The property that broke was statistical, so the test is too. A hash without
+  // avalanche puts every sibling pair ~1° apart, every time; this catches that
+  // regression where a floor on a handful of hand-picked pairs would not.
+  //
+  // Deliberately not asserting a floor: hues are uniform over the wheel, so some
+  // pair always lands close by chance — `release/1.0.0` and `release/1.0.1` sit
+  // 27° apart today. That is the birthday problem, not a defect, and tuning a
+  // threshold until it passes would only hide it.
+  test("a one-character change moves the colour a lot, on average", () => {
+    // Avalanche is a statistical property; assert it as one rather than on a
+    // single lucky pair.
+    const gaps = Array.from({ length: 200 }, (_, i) =>
+      hueGap(`branch-${i}a`, `branch-${i}b`),
+    );
+    const mean = gaps.reduce((a, b) => a + b, 0) / gaps.length;
+    assert.ok(mean > 70, `mean gap ${mean.toFixed(0)}°, expected well above 70`);
   });
 });
 
