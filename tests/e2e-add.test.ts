@@ -185,3 +185,62 @@ describe("--open", () => {
     assert.doesNotMatch(r.output, /uv_tty_init/);
   });
 });
+
+// Two things took "the repository" to mean "wherever you are standing". Running
+// from a secondary worktree therefore produced a worktree named after another
+// worktree, and copied .env files from a directory that may have none.
+describe("running from a secondary worktree", () => {
+  test("the new worktree is a sibling of the main one, not of the current one", () => {
+    const repo = tmpRepo();
+    runCli(["add", "first"], { cwd: repo });
+    const first = siblingOf(repo, "first");
+
+    runCli(["add", "second"], { cwd: first });
+
+    assert.ok(existsSync(siblingOf(repo, "second")), "named after the repository");
+    assert.equal(
+      existsSync(path.join(path.dirname(repo), `${path.basename(repo)}-first-second`)),
+      false,
+      "not named after the worktree it was run from",
+    );
+  });
+
+  test(".env files come from the main worktree, not the current one", () => {
+    const repo = tmpRepo();
+    write(path.join(repo, ".gitignore"), ".env\n");
+    git(repo, "add", "-A");
+    git(repo, "commit", "-q", "-m", "ignore env");
+    write(path.join(repo, ".env"), "SECRET=from-main");
+
+    // A worktree made with bare git: it has no .env at all.
+    git(repo, "worktree", "add", "-q", siblingOf(repo, "bare"), "-b", "bare");
+
+    const r = runCli(["add", "downstream"], { cwd: siblingOf(repo, "bare") });
+
+    assert.match(r.output, /Copied 1 \.env file/);
+    assert.equal(
+      readFileSync(path.join(siblingOf(repo, "downstream"), ".env"), "utf-8"),
+      "SECRET=from-main",
+    );
+  });
+
+  test("the main worktree stays the source even when the current one differs", () => {
+    const repo = tmpRepo();
+    write(path.join(repo, ".gitignore"), ".env\n");
+    git(repo, "add", "-A");
+    git(repo, "commit", "-q", "-m", "ignore env");
+    write(path.join(repo, ".env"), "SECRET=from-main");
+
+    runCli(["add", "middle"], { cwd: repo });
+    // Diverge the intermediate worktree's copy.
+    write(path.join(siblingOf(repo, "middle"), ".env"), "SECRET=from-middle");
+
+    runCli(["add", "downstream2"], { cwd: siblingOf(repo, "middle") });
+
+    assert.equal(
+      readFileSync(path.join(siblingOf(repo, "downstream2"), ".env"), "utf-8"),
+      "SECRET=from-main",
+      "sync-env documents main as the source; add now agrees",
+    );
+  });
+});

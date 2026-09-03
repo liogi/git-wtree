@@ -88,7 +88,7 @@ export async function commandPr(
     process.exit(1);
   }
 
-  finalizeWorktree(root, worktreePath, branch);
+  finalizeWorktree(worktreePath, branch);
 
   if (options.open) openInIde(worktreePath);
 
