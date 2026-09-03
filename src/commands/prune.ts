@@ -148,6 +148,10 @@ export async function commandPrune(
     );
   }
 
+  // Same trap as `gwt rm`: one of the worktrees about to go may be the one we
+  // are standing in.
+  process.chdir(main.path);
+
   let removed = 0;
   for (const { worktree } of removable) {
     if (project.teardown.length > 0) {

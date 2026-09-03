@@ -182,3 +182,22 @@ describe("untouched branches are not finished work", () => {
     assert.ok(existsSync(wt(repo, "untouched")));
   });
 });
+
+describe("pruning from inside a worktree that is about to go", () => {
+  test("removes it without tripping over its own cwd", () => {
+    const repo = tmpRepo();
+    runCli(["add", "doomed"], { cwd: repo });
+    git(wt(repo, "doomed"), "commit", "-q", "--allow-empty", "-m", "work");
+    git(repo, "merge", "-q", "--no-ff", "-m", "merge doomed", "doomed");
+
+    const r = runCli(["prune", "--apply"], {
+      cwd: wt(repo, "doomed"),
+      env: noGh(),
+    });
+
+    assert.equal(r.code, 0);
+    assert.doesNotMatch(r.output, /ENOENT/);
+    assert.match(r.output, /Removed 1 worktree/);
+    assert.equal(existsSync(wt(repo, "doomed")), false);
+  });
+});
