@@ -21,6 +21,53 @@ Verified empirically: with `gitwtree` off the PATH at source-time, the `eval` fo
 - The block is delimited by markers, so `--install` is idempotent (detect / replace / skip) and `--uninstall` removes it cleanly.
 - `bash` on macOS: Terminal launches a login shell reading `~/.bash_profile`, not `~/.bashrc`. `--install` targets `~/.bashrc` and warns rather than editing a second file. `--rc <path>` is the escape hatch.
 
+## Amendment 2: the rc holds a loader, the wrapper lives in a file (accepted later)
+
+Both earlier decisions stand — never run the binary at shell startup, and let the block report
+itself — but writing the wrapper *inline* in the rc was the wrong way to satisfy the first.
+
+The rc now holds three lines that never change:
+
+```sh
+# >>> git-wtree >>>
+[ -r "$HOME/.config/git-wtree/init.zsh" ] && . "$HOME/.config/git-wtree/init.zsh"
+# <<< git-wtree <<<
+```
+
+This is the shape nvm, bun and SDKMAN use. It sources a static file at a fixed path, so it still
+runs nothing at startup and is still immune to PATH ordering — the property this ADR exists to
+protect.
+
+### Why the inline form had to go
+
+The block carried the package version, so **every release changed it**. `doctor` compared that
+version to the binary's and reported the integration as stale after any bump, including patches
+that touched nothing shell-side, and told users to reinstall a wrapper that had not changed.
+The advice was noise, and noise trains people to ignore warnings that later matter.
+
+Three further consequences fell out of the split:
+
+- The wrapper is identified by a **hash of its own content**, not by the package version, so it
+  changes only when the wrapper changes. A hash cannot be forgotten the way a hand-bumped counter
+  can.
+- Any `gitwtree` invocation rewrites an out-of-date wrapper, so `npm i -g git-wtree@latest` is the
+  whole upgrade: the next terminal has the new wrapper. `doctor` then says *open a new terminal*
+  rather than *reinstall*, which is both true and actionable.
+- The nested `eval` is gone. It existed because zsh expands aliases at parse time and an inline
+  block was parsed as one unit, so the `unalias` had to be forced to run first. A **sourced file**
+  executes command by command, so the unalias simply runs before the function below it is parsed.
+  Verified, not assumed.
+
+### Consequences
+
+- Two artefacts instead of one; `--uninstall` removes both.
+- `~/.config/git-wtree/init.<shell>`, not the npm package directory: a global npm prefix moves when
+  you switch Node versions with nvm or fnm, and the rc line needs a path that does not.
+- Deleting `~/.config/git-wtree` leaves the rc line silently doing nothing. `doctor` reports the
+  wrapper as missing.
+- One last reinstall to move to the new format. It is the last one that will be needed for a
+  version bump.
+
 ## Amendment: the block reports itself (accepted later)
 
 This ADR left `doctor` unable to answer the question users actually hit — is `gwt` the function,

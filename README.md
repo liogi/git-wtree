@@ -26,7 +26,13 @@ Run this once — it enables `gwt switch` (jumping between worktrees) and, on zs
 gitwtree shell-init --install
 ```
 
-It detects your shell, writes a small block to your rc (`~/.zshrc`, `~/.bashrc`, or `~/.config/fish/config.fish`), and is idempotent — re-run it any time to update or repair the block. Then **open a new terminal**.
+It detects your shell, writes three lines to your rc (`~/.zshrc`, `~/.bashrc`, or
+`~/.config/fish/config.fish`) and the wrapper itself to
+`~/.config/git-wtree/init.<shell>`. Then **open a new terminal**.
+
+**You should only ever need to run this once.** The rc line is a loader — the same shape nvm and
+bun use — so upgrading git-wtree never touches it. When a new version changes the wrapper, the
+next `gwt` command rewrites it and the next terminal picks it up.
 
 > **Why `gitwtree` and not `gwt`?** oh-my-zsh's git plugin aliases `gwt` (and `gwta`, `gwtls`, …) to `git worktree`, which shadows this CLI. `gitwtree` is never aliased, so it always works; the block it installs clears those aliases and defines a `gwt` function that wins. If `gwt` runs `git worktree`, you haven't run the integration yet — run `gitwtree shell-init --install`, or use `gitwtree` directly.
 
@@ -36,7 +42,7 @@ It detects your shell, writes a small block to your rc (`~/.zshrc`, `~/.bashrc`,
 gitwtree shell-init zsh >> ~/.zshrc   # or: bash | fish
 ```
 
-Both write a _static_ block (no `gitwtree` call at shell startup), so it's robust regardless of where your PATH is configured. To remove it later: `gitwtree shell-init --uninstall`.
+That prints the loader and writes the wrapper file, so it is `--install` minus the rc edit. Neither form calls `gitwtree` at shell startup, so both are robust regardless of where your PATH is configured. To remove everything later: `gitwtree shell-init --uninstall`.
 
 ### Commands
 

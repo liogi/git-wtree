@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { readFileSync } from "fs";
 import { Command } from "commander";
+import { refreshInitFileIfInstalled } from "./lib/shellIntegration.js";
 import { commandAdd } from "./commands/add.js";
 import { commandRm } from "./commands/rm.js";
 import { commandLs } from "./commands/ls.js";
@@ -21,6 +22,12 @@ import {
   commandConfigSetup,
   commandConfigTeardown,
 } from "./commands/config.js";
+
+// An upgrade replaces the binary but not the wrapper the shell sourced. Refresh
+// it here so `npm i -g git-wtree@latest` is the only step: the next terminal
+// picks up the new wrapper with nothing else to run. Only touches a wrapper that
+// already exists — installing is the user's choice, not a side effect.
+refreshInitFileIfInstalled();
 
 const pkg = JSON.parse(
   readFileSync(new URL("../package.json", import.meta.url), "utf-8"),

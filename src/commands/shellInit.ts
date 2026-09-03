@@ -4,67 +4,22 @@ import path from "path";
 import {
   BEGIN,
   END,
-  VERSION,
   detectShell,
   rcPathFor,
+  loaderFor,
+  writeInitFile,
+  initPathFor,
   type Shell,
 } from "../lib/shellIntegration.js";
 
-// zsh / bash function. `gwt switch` lets the binary render its picker on the
-// terminal and hands the chosen path back through a temp file, then cd's into it
-// (a binary can't change the parent shell's cwd on its own).
-//
-// The leading `unalias` clears oh-my-zsh's git-plugin aliases (gwt → git worktree)
-// so the function can define cleanly and win over them; harmless otherwise. The
-// function body is wrapped in an inner `eval` so it is parsed only AFTER the
-// unalias runs — zsh expands aliases at parse time, and a single outer eval would
-// parse the whole block (alias still active) before the unalias executes.
-// Crucially, nothing here runs `gitwtree` at source-time: the only call is
-// `command gitwtree` inside the body, at run-time. See docs/adr/0001.
-// The block exports its own version. ADR 0001 said a binary cannot inspect the
-// parent shell, which is true — but the block running *inside* that shell can
-// leave a mark, and every child process inherits it. That is what lets `doctor`
-// answer the question it used to have to hand back to the user: is `gwt` the
-// function, or is it still oh-my-zsh's alias? The variable exists only if this
-// block was sourced, and this block is what unaliases and defines the function.
-const POSIX = (version: string) => `export GWT_SHELL_INTEGRATION=${version}
-unalias gwt gwta gwtls gwtmv gwtrm 2>/dev/null
-eval 'gwt() {
-  case "$1" in
-    switch|sw)
-      local _gwt_out _gwt_dir
-      _gwt_out="$(mktemp)" || return
-      command gitwtree path --out "$_gwt_out" "\${@:2}"
-      _gwt_dir="$(cat "$_gwt_out" 2>/dev/null)"
-      rm -f "$_gwt_out"
-      [ -n "$_gwt_dir" ] && cd "$_gwt_dir"
-      ;;
-    *)
-      command gitwtree "$@"
-      ;;
-  esac
-}'`;
-
-const FISH = (version: string) => `set -gx GWT_SHELL_INTEGRATION ${version}
-function gwt
-  if test "$argv[1]" = switch -o "$argv[1]" = sw
-    set -l _gwt_out (mktemp)
-    command gitwtree path --out "$_gwt_out" $argv[2..-1]
-    set -l _gwt_dir (cat "$_gwt_out" 2>/dev/null)
-    rm -f "$_gwt_out"
-    test -n "$_gwt_dir"; and cd "$_gwt_dir"
-  else
-    command gitwtree $argv
-  end
-end`;
-
-function snippetFor(shell: Shell): string {
-  return shell === "fish" ? FISH(VERSION) : POSIX(VERSION);
-}
-
+// The rc gets a loader, not the wrapper itself — the same shape nvm, bun and
+// SDKMAN use. The wrapper lives in ~/.config/git-wtree/init.<shell>, which the
+// binary owns and refreshes, so this block is written once and never changes
+// again. It still runs nothing at shell startup: it reads a static file at a
+// fixed path, which is what ADR 0001 actually required.
 function buildBlock(shell: Shell): string {
-  const header = `${BEGIN} v${VERSION} (managed by \`gitwtree shell-init --install\` — do not edit)`;
-  return `${header}\n${snippetFor(shell)}\n${END}`;
+  const header = `${BEGIN} (managed by \`gitwtree shell-init --install\` — do not edit)`;
+  return `${header}\n${loaderFor(shell)}\n${END}`;
 }
 
 // Removes an existing git-wtree block (plus a single blank line above it, to
@@ -73,10 +28,9 @@ function buildBlock(shell: Shell): string {
 //
 // A BEGIN with no END means a half-written or hand-edited block. Returning
 // "nothing found" there was a bug: install would then APPEND a second block,
-// leaving a stale marker that `readInstalledBlock` reads first — so `doctor`
-// reported the old version forever and every reinstall added one more block.
-// We drop the orphan marker line, which is ours, and leave everything after it
-// alone, which is not.
+// leaving a stale marker that made `doctor` report the wrong state forever and
+// every reinstall add one more block. We drop the orphan marker line, which is
+// ours, and leave everything after it alone, which is not.
 function stripBlock(content: string): {
   content: string;
   found: boolean;
@@ -98,7 +52,6 @@ function stripBlock(content: string): {
   if (start > 0 && lines[start - 1].trim() === "") start -= 1;
 
   if (end === -1) {
-    // Remove the marker only — the lines below it may be the user's.
     lines.splice(start, begin - start + 1);
     return { content: lines.join("\n"), found: true, truncated: true };
   }
@@ -119,6 +72,7 @@ function warnBashMacosIfNeeded(shell: Shell): void {
 }
 
 function install(shell: Shell, rcOverride?: string): void {
+  const wrapper = writeInitFile(shell);
   const rc = rcOverride ?? rcPathFor(shell);
   const existing = fs.existsSync(rc) ? fs.readFileSync(rc, "utf-8") : "";
   const { content: stripped, found, truncated } = stripBlock(existing);
@@ -136,31 +90,36 @@ function install(shell: Shell, rcOverride?: string): void {
         "  check for leftover lines from it below your other settings.\n",
     );
   }
+  process.stdout.write(`Wrote the wrapper to ${wrapper}\n`);
   process.stdout.write(
-    `${found ? "Updated" : "Added"} git-wtree shell integration in ${rc}\n`,
+    `${found ? "Updated" : "Added"} the git-wtree loader in ${rc}\n`,
   );
   warnBashMacosIfNeeded(shell);
-  process.stdout.write("Open a new terminal to apply.\n");
+  process.stdout.write(
+    "Open a new terminal to apply. Future upgrades refresh the wrapper on their\n" +
+      "own — you should not need to run this again.\n",
+  );
 }
 
 function uninstall(shell: Shell, rcOverride?: string): void {
+  const wrapper = initPathFor(shell);
+  if (fs.existsSync(wrapper)) {
+    fs.rmSync(wrapper, { force: true });
+    process.stdout.write(`Removed ${wrapper}\n`);
+  }
+
   const rc = rcOverride ?? rcPathFor(shell);
   if (!fs.existsSync(rc)) {
     process.stdout.write(`Nothing to remove: ${rc} not found.\n`);
     return;
   }
-  const { content, found, truncated } = stripBlock(fs.readFileSync(rc, "utf-8"));
-  if (truncated) {
-    process.stdout.write(
-      `⚠ The block in ${rc} had no closing marker; removed the marker only.\n`,
-    );
-  }
+  const { content, found } = stripBlock(fs.readFileSync(rc, "utf-8"));
   if (!found) {
     process.stdout.write(`No git-wtree block found in ${rc}.\n`);
     return;
   }
   fs.writeFileSync(rc, content);
-  process.stdout.write(`Removed git-wtree shell integration from ${rc}.\n`);
+  process.stdout.write(`Removed the git-wtree loader from ${rc}.\n`);
 }
 
 export function commandShellInit(
@@ -176,5 +135,9 @@ export function commandShellInit(
     install(target, options.rc);
     return;
   }
-  process.stdout.write(snippetFor(target) + "\n");
+  // Printing is for `gitwtree shell-init zsh >> ~/.zshrc`. The wrapper file it
+  // points at is written here too, otherwise the loader would point at nothing
+  // until the next command.
+  writeInitFile(target);
+  process.stdout.write(buildBlock(target) + "\n");
 }
