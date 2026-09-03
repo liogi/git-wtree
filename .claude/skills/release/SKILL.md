@@ -19,6 +19,29 @@ npm test                    # must pass before anything else
 
 Stop and say so if either fails. Never prepare a release on a dirty tree.
 
+## 1b. Check there is anything to release
+
+A version whose installed contents are identical to the last one is noise: an
+entry in the version history, a notification, and nothing for anyone to gain.
+Only what `files` in package.json ships can matter to a user — today `dist`,
+`CHANGELOG.md`, `LICENSE`, `README.md`.
+
+```bash
+LAST=$(git describe --tags --abbrev=0)
+git diff --stat "$LAST"..main
+```
+
+Nothing outside those paths is publishable on its own. Repository tooling —
+`.claude/`, `.github/`, `tests/`, `tsconfig*.json` — never reaches the package.
+
+`README.md` needs judgement rather than a rule: a correction users read is worth
+a patch, a section about the maintainer's own workflow is not.
+
+If nothing publishable changed, **say so and stop**. Name what did change and
+why it does not ship, then leave the decision with the user rather than
+preparing a release they did not need. Preparing it anyway and letting them
+notice at the last question wastes the review.
+
 ## 2. Bump
 
 Accepts `patch`, `minor`, `major`, or an explicit version like `1.0.0`.
