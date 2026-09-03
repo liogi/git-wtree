@@ -3,17 +3,13 @@ import pc from "picocolors";
 import { copyEnvFiles } from "./env.js";
 import { resolveSetupCommands, runCommands } from "./setup.js";
 import { applyWorktreeTheme, writeClaudeStatusline } from "./ideTheme.js";
-import { hideFromGit } from "./git.js";
+import { getMainWorktree, hideFromGit } from "./git.js";
 import { readConfig } from "./config.js";
 import { resolveConfig, REPO_CONFIG_FILE } from "./repoConfig.js";
 
 // Shared post-creation flow for a freshly added worktree: sync env files, run the
 // setup hook, and apply per-worktree theming. Used by both `add` and `pr`.
-export function finalizeWorktree(
-  root: string,
-  worktreePath: string,
-  branch: string,
-): void {
+export function finalizeWorktree(worktreePath: string, branch: string): void {
   // Developer-level settings (which editor, whether to colour) stay global;
   // project-level settings come from the repo's .gitwtree.json.
   const global = readConfig();
@@ -26,8 +22,14 @@ export function finalizeWorktree(
     );
   }
 
+  // The main worktree is the source, always — the same rule `gwt sync-env`
+  // documents. Taking it from the caller took it from wherever the command was
+  // typed: run from a worktree created by a bare `git worktree add`, which has
+  // no .env files at all, this copied nothing and said "No .env files found to
+  // copy" as though the repository had none.
+  const source = getMainWorktree();
   log.step("Syncing .env files…");
-  copyEnvFiles(root, worktreePath, project.scanDirs);
+  copyEnvFiles(source?.path ?? worktreePath, worktreePath, project.scanDirs);
 
   const setupCommands = resolveSetupCommands(worktreePath, project.setup);
   if (setupCommands.length > 0) {

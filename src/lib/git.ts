@@ -58,11 +58,16 @@ export function sanitizeBranch(branch: string): string {
   return branch.replace(/\//g, "-");
 }
 
+// Worktrees are siblings of the MAIN worktree, named after the repository.
+// Deriving this from getRepoRoot() derived it from wherever you happened to be:
+// running `gwt add feature` inside `repo-other` produced `repo-other-feature`, a
+// worktree named after another worktree. Where the command is typed should not
+// change where its result lands.
 export function getWorktreePath(branch: string): string {
-  const root = getRepoRoot();
-  const repoName = getRepoName(root);
+  const main = getMainWorktree();
+  if (!main) throw new Error("Not inside a git repository");
   const sanitized = sanitizeBranch(branch);
-  return path.resolve(root, "..", `${repoName}-${sanitized}`);
+  return path.resolve(main.path, "..", `${getRepoName(main.path)}-${sanitized}`);
 }
 
 export function branchExists(branch: string): boolean {

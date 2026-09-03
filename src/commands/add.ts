@@ -128,7 +128,7 @@ export async function commandAdd(
     }
   }
 
-  finalizeWorktree(root, worktreePath, branch);
+  finalizeWorktree(worktreePath, branch);
 
   // Opt-in rather than automatic: creating a worktree and having a window appear
   // is not always what you want, and `gwt open` already exists for later.

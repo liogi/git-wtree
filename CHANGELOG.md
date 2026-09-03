@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **`gwt add` and `gwt pr` no longer depend on where you run them.** Both took
+  "the repository" to mean the worktree you happened to be standing in, so from a
+  secondary worktree they created `repo-other-feature` — a worktree named after
+  another worktree — and copied `.env` files from a directory that may hold none.
+  Run from a worktree made with a bare `git worktree add`, that meant a new
+  worktree with no `.env` at all and only "No .env files found to copy" to explain
+  it. Both now resolve the main worktree, the same rule `gwt sync-env` already
+  documented.
+
 ## 0.8.0
 
 The release that turned a working tool into a maintained one: two security
