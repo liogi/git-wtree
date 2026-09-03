@@ -1,7 +1,24 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import path from "node:path";
 import { tmpDir, tmpRepo, runCli } from "./helpers/fixtures.ts";
+import { wrapperRev } from "../dist/lib/shellIntegration.js";
+
+// doctor resolves the rc and the wrapper from $SHELL, so every case here pins
+// it. Without that the fixture installs the zsh wrapper while doctor looks for
+// the bash one on any machine whose default shell is not zsh — which is every
+// CI runner, and was not this laptop.
+const ZSH = { SHELL: "/bin/zsh" };
+
+/** A home with the integration installed, so doctor has something to report on. */
+function installedHome(): string {
+  const home = tmpDir("home-");
+  // No --rc: doctor reads the shell's real rc path, which under this HOME is
+  // <home>/.zshrc. Overriding it here would make doctor look elsewhere.
+  runCli(["shell-init", "zsh", "--install"], { cwd: tmpRepo(), home, env: ZSH });
+  return home;
+}
 
 // Replaces the "does the binary start" smoke that used to live as bash in CI:
 // a clean `tsc` says nothing about whether the entrypoint boots.
@@ -39,11 +56,13 @@ describe("the built CLI boots", () => {
     assert.match(r.stdout, /main/);
   });
 
-  test("doctor reports on git and the shell integration", () => {
+  test("doctor reports on git, the loader, the wrapper and this shell", () => {
     const r = runCli(["doctor"], { cwd: repo });
     assert.equal(r.code, 0);
     assert.match(r.output, /git version/);
-    assert.match(r.output, /Shell integration/);
+    assert.match(r.output, /loader/i);
+    assert.match(r.output, /[Ww]rapper/);
+    assert.match(r.output, /this shell/i);
   });
 
   test("switch tells you to install the shell integration", () => {
@@ -65,47 +84,57 @@ describe("the built CLI boots", () => {
   });
 });
 
-// `doctor` used to say it could not tell whether `gwt` resolved to the function
-// or to oh-my-zsh's alias, and handed the question back to the user. The rc
-// block now exports GWT_SHELL_INTEGRATION, so it can answer.
+// `doctor` used to hand back the question that mattered — is `gwt` the function
+// or oh-my-zsh's alias? The wrapper exports its revision, so it can answer.
 describe("gwt doctor sees the shell", () => {
   const repo = tmpRepo();
 
   test("reports the integration inactive when the variable is unset", () => {
-    const r = runCli(["doctor"], { cwd: repo, env: { GWT_SHELL_INTEGRATION: "" } });
-    assert.match(r.output, /not active in this shell/i);
+    const r = runCli(["doctor"], {
+      cwd: repo,
+      env: { ...ZSH, GWT_SHELL_INTEGRATION: "" },
+    });
+    assert.match(r.output, /Not active in this shell/i);
   });
 
   test("reports it active, and says gwt is the function", () => {
-    const version = JSON.parse(
-      readFileSync(new URL("../package.json", import.meta.url), "utf-8"),
-    ).version as string;
     const r = runCli(["doctor"], {
       cwd: repo,
-      env: { GWT_SHELL_INTEGRATION: version },
+      env: { ...ZSH, GWT_SHELL_INTEGRATION: wrapperRev("zsh") },
+      home: installedHome(),
     });
     assert.match(r.output, /Active in this shell/);
     assert.match(r.output, /is the function/);
   });
 
-  test("flags a stale block still loaded in the shell", () => {
+  // The distinction that matters after an upgrade: the wrapper on disk is
+  // already current, only this shell is behind. Nothing to reinstall.
+  test("tells a stale shell to open a new terminal, not to reinstall", () => {
     const r = runCli(["doctor"], {
       cwd: repo,
-      env: { GWT_SHELL_INTEGRATION: "0.0.1" },
+      env: { ...ZSH, GWT_SHELL_INTEGRATION: "0ldrev00" },
+      home: installedHome(),
     });
-    assert.match(r.output, /v0\.0\.1/);
+    assert.match(r.output, /older wrapper/);
+    assert.match(r.output, /Open a new terminal/);
+    assert.doesNotMatch(r.output, /shell-init --install/);
+  });
+
+  test("asks for an install only when the loader really is missing", () => {
+    const r = runCli(["doctor"], { cwd: repo, home: tmpDir("home-"), env: ZSH });
+    assert.match(r.output, /No git-wtree loader/);
     assert.match(r.output, /shell-init --install/);
   });
 });
 
-describe("the rc block announces itself", () => {
-  test("the zsh snippet exports the version", () => {
-    const r = runCli(["shell-init", "zsh"], { cwd: tmpRepo() });
-    assert.match(r.stdout, /^export GWT_SHELL_INTEGRATION=\d+\.\d+\.\d+$/m);
-  });
-
-  test("the fish snippet sets it too", () => {
-    const r = runCli(["shell-init", "fish"], { cwd: tmpRepo() });
-    assert.match(r.stdout, /^set -gx GWT_SHELL_INTEGRATION \d+\.\d+\.\d+$/m);
+describe("the wrapper announces its revision", () => {
+  test("the zsh wrapper exports a content hash, not a package version", () => {
+    const home = installedHome();
+    const wrapper = readFileSync(
+      path.join(home, ".config", "git-wtree", "init.zsh"),
+      "utf-8",
+    );
+    assert.match(wrapper, /^export GWT_SHELL_INTEGRATION=[0-9a-f]{8}$/m);
+    assert.doesNotMatch(wrapper, /GWT_SHELL_INTEGRATION=\d+\.\d+\.\d+/);
   });
 });

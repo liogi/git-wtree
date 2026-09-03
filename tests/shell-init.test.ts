@@ -1,27 +1,31 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { tmpDir, write, runCli, tmpRepo } from "./helpers/fixtures.ts";
 import {
   detectShell,
   rcPathFor,
-  readInstalledBlock,
-  VERSION,
   BEGIN,
   END,
 } from "../dist/lib/shellIntegration.js";
 
 const MARKER = "# >>> git-wtree";
+const repo = tmpRepo();
 
-function rcWith(contents: string): string {
-  return write(path.join(tmpDir(), "rc"), contents);
+function scratchHome(): { home: string; rc: string } {
+  const home = tmpDir("home-");
+  return { home, rc: path.join(home, "rc") };
 }
 
 function countMarkers(rc: string): number {
   return readFileSync(rc, "utf-8")
     .split("\n")
     .filter((l) => l.startsWith(MARKER)).length;
+}
+
+function wrapperPath(home: string): string {
+  return path.join(home, ".config", "git-wtree", "init.zsh");
 }
 
 describe("detectShell", () => {
@@ -46,127 +50,159 @@ describe("rcPathFor", () => {
 });
 
 describe("install", () => {
-  const repo = tmpRepo();
+  test("puts a loader in the rc and the wrapper in its own file", () => {
+    const { home, rc } = scratchHome();
+    write(rc, "export PATH=/pre-existing\n");
 
-  test("adds a block and leaves existing content untouched", () => {
-    const rc = rcWith("export PATH=/pre-existing\n");
     const r = runCli(["shell-init", "zsh", "--install", "--rc", rc], {
       cwd: repo,
+      home,
     });
-
     assert.equal(r.code, 0);
-    const after = readFileSync(rc, "utf-8");
-    assert.match(after, /export PATH=\/pre-existing/);
+
+    const block = readFileSync(rc, "utf-8");
+    assert.match(block, /export PATH=\/pre-existing/, "existing content survives");
     assert.equal(countMarkers(rc), 1);
-    assert.match(after, new RegExp(END));
+    assert.match(block, new RegExp(END));
+    // The rc points at the wrapper; it does not contain it.
+    assert.match(block, /\$HOME\/\.config\/git-wtree\/init\.zsh/);
+    assert.doesNotMatch(block, /^gwt\(\)/m, "no function body in the rc");
+
+    const wrapper = readFileSync(wrapperPath(home), "utf-8");
+    assert.match(wrapper, /^unalias gwt/m);
+    assert.match(wrapper, /^gwt\(\) \{/m);
+    assert.match(wrapper, /^export GWT_SHELL_INTEGRATION=[0-9a-f]{8}$/m);
   });
 
-  test("works on an rc that does not exist yet", () => {
-    const rc = path.join(tmpDir(), "brand-new-rc");
-    assert.equal(
-      runCli(["shell-init", "zsh", "--install", "--rc", rc], { cwd: repo }).code,
-      0,
-    );
-    assert.equal(countMarkers(rc), 1);
+  // The point of the split: the rc line must not mention the package version,
+  // or every release would report the integration as stale and demand a
+  // reinstall for a wrapper that did not change.
+  test("the rc block carries no version at all", () => {
+    const { home, rc } = scratchHome();
+    runCli(["shell-init", "zsh", "--install", "--rc", rc], { cwd: repo, home });
+    assert.doesNotMatch(readFileSync(rc, "utf-8"), /\d+\.\d+\.\d+/);
   });
 
-  test("works on an rc with no trailing newline", () => {
-    const rc = rcWith("export PATH=/x");
-    runCli(["shell-init", "zsh", "--install", "--rc", rc], { cwd: repo });
-    const after = readFileSync(rc, "utf-8");
-    assert.match(after, /export PATH=\/x\n/);
+  test("nothing in the rc runs the binary at shell startup", () => {
+    const { home, rc } = scratchHome();
+    runCli(["shell-init", "zsh", "--install", "--rc", rc], { cwd: repo, home });
+    const block = readFileSync(rc, "utf-8");
+    assert.doesNotMatch(block, /\$\(\s*gitwtree/, "no command substitution");
+    assert.doesNotMatch(block, /^eval /m);
+  });
+
+  test("works on an rc that does not exist, and one with no trailing newline", () => {
+    const { home, rc } = scratchHome();
+    runCli(["shell-init", "zsh", "--install", "--rc", rc], { cwd: repo, home });
     assert.equal(countMarkers(rc), 1);
+
+    const second = scratchHome();
+    write(second.rc, "export PATH=/x");
+    runCli(["shell-init", "zsh", "--install", "--rc", second.rc], {
+      cwd: repo,
+      home: second.home,
+    });
+    assert.match(readFileSync(second.rc, "utf-8"), /export PATH=\/x\n/);
+    assert.equal(countMarkers(second.rc), 1);
   });
 
   test("is idempotent — three installs leave exactly one block", () => {
-    const rc = rcWith("setopt AUTO_CD\n");
+    const { home, rc } = scratchHome();
+    write(rc, "setopt AUTO_CD\n");
     for (let i = 0; i < 3; i++) {
-      runCli(["shell-init", "zsh", "--install", "--rc", rc], { cwd: repo });
+      runCli(["shell-init", "zsh", "--install", "--rc", rc], { cwd: repo, home });
     }
     assert.equal(countMarkers(rc), 1);
     assert.match(readFileSync(rc, "utf-8"), /setopt AUTO_CD/);
   });
 
-  test("stamps a version the reader can parse back", () => {
-    const rc = rcWith("");
-    runCli(["shell-init", "zsh", "--install", "--rc", rc], { cwd: repo });
-    assert.deepEqual(readInstalledBlock(rc), { present: true, version: VERSION });
-  });
+  test("writes the fish wrapper for fish, not the posix one", () => {
+    const { home, rc } = scratchHome();
+    runCli(["shell-init", "fish", "--install", "--rc", rc], { cwd: repo, home });
 
-  test("writes the fish function for fish, not the posix one", () => {
-    const rc = rcWith("");
-    runCli(["shell-init", "fish", "--install", "--rc", rc], { cwd: repo });
-    const after = readFileSync(rc, "utf-8");
-    assert.match(after, /^function gwt/m);
-    assert.doesNotMatch(after, /unalias gwt/);
+    const wrapper = readFileSync(
+      path.join(home, ".config", "git-wtree", "init.fish"),
+      "utf-8",
+    );
+    assert.match(wrapper, /^function gwt/m);
+    assert.match(wrapper, /^set -gx GWT_SHELL_INTEGRATION/m);
+    assert.doesNotMatch(wrapper, /unalias gwt/);
   });
 
   // Regression: a BEGIN with no END used to be reported as "no block found", so
-  // install appended a SECOND block. readInstalledBlock reads the first marker,
-  // so doctor then claimed the integration was stale forever and every reinstall
-  // stacked one more block.
+  // install appended a SECOND block, and every reinstall stacked one more.
   test("a truncated block does not stack a second one", () => {
-    const rc = rcWith(
-      `export PATH=/mine\n\n${BEGIN} v0.1.0 (managed)\ngwt() { echo stale; }\n`,
-    );
+    const { home, rc } = scratchHome();
+    write(rc, `export PATH=/mine\n\n${BEGIN} v0.1.0 (managed)\ngwt() { echo stale; }\n`);
+
     const r = runCli(["shell-init", "zsh", "--install", "--rc", rc], {
       cwd: repo,
+      home,
     });
-
-    assert.equal(countMarkers(rc), 1, "exactly one BEGIN marker must remain");
-    assert.equal(readInstalledBlock(rc).version, VERSION);
-    assert.match(r.output, /no closing marker/i, "the user is told why");
+    assert.equal(countMarkers(rc), 1);
+    assert.match(r.output, /no closing marker/i);
     assert.match(readFileSync(rc, "utf-8"), /export PATH=\/mine/);
+  });
+
+  test("replaces an old inline block with the loader", () => {
+    const { home, rc } = scratchHome();
+    write(
+      rc,
+      `${BEGIN} v0.7.0 (managed)\nunalias gwt 2>/dev/null\neval 'gwt() { :; }'\n${END}\n`,
+    );
+
+    runCli(["shell-init", "zsh", "--install", "--rc", rc], { cwd: repo, home });
+    const block = readFileSync(rc, "utf-8");
+    assert.equal(countMarkers(rc), 1);
+    assert.doesNotMatch(block, /eval '/, "the old inline wrapper is gone");
+    assert.match(block, /init\.zsh/);
+  });
+});
+
+describe("upgrades", () => {
+  test("a wrapper written by an older version is refreshed by any command", () => {
+    const { home, rc } = scratchHome();
+    runCli(["shell-init", "zsh", "--install", "--rc", rc], { cwd: repo, home });
+
+    const file = wrapperPath(home);
+    const current = readFileSync(file, "utf-8");
+    writeFileSync(file, current.replace(/GWT_SHELL_INTEGRATION=\w+/, "GWT_SHELL_INTEGRATION=old"));
+
+    // Any invocation, not just shell-init.
+    runCli(["--version"], { cwd: repo, home });
+    assert.equal(readFileSync(file, "utf-8"), current);
+  });
+
+  test("a wrapper that was never installed is not created behind your back", () => {
+    const home = tmpDir("home-");
+    runCli(["--version"], { cwd: repo, home });
+    assert.equal(existsSync(wrapperPath(home)), false);
   });
 });
 
 describe("uninstall", () => {
-  const repo = tmpRepo();
-
-  test("restores the file to exactly what it was", () => {
+  test("restores the rc exactly and removes the wrapper file", () => {
+    const { home, rc } = scratchHome();
     const before = "export PATH=/a\nalias l=ls\n";
-    const rc = rcWith(before);
-    runCli(["shell-init", "zsh", "--install", "--rc", rc], { cwd: repo });
-    runCli(["shell-init", "zsh", "--uninstall", "--rc", rc], { cwd: repo });
+    write(rc, before);
+
+    runCli(["shell-init", "zsh", "--install", "--rc", rc], { cwd: repo, home });
+    assert.ok(existsSync(wrapperPath(home)));
+
+    runCli(["shell-init", "zsh", "--uninstall", "--rc", rc], { cwd: repo, home });
     assert.equal(readFileSync(rc, "utf-8"), before);
+    assert.equal(existsSync(wrapperPath(home)), false);
   });
 
   test("is a no-op on an rc with no block", () => {
-    const rc = rcWith("export PATH=/a\n");
+    const { home, rc } = scratchHome();
+    write(rc, "export PATH=/a\n");
     const r = runCli(["shell-init", "zsh", "--uninstall", "--rc", rc], {
       cwd: repo,
+      home,
     });
     assert.equal(r.code, 0);
     assert.match(r.output, /No git-wtree block/);
     assert.equal(readFileSync(rc, "utf-8"), "export PATH=/a\n");
-  });
-
-  test("reports cleanly when the rc does not exist", () => {
-    const r = runCli(
-      ["shell-init", "zsh", "--uninstall", "--rc", path.join(tmpDir(), "nope")],
-      { cwd: repo },
-    );
-    assert.equal(r.code, 0);
-    assert.match(r.output, /Nothing to remove/);
-  });
-});
-
-describe("readInstalledBlock", () => {
-  test("reports absent for a missing file and for a file with no block", () => {
-    assert.deepEqual(readInstalledBlock(path.join(tmpDir(), "missing")), {
-      present: false,
-      version: null,
-    });
-    assert.deepEqual(readInstalledBlock(rcWith("export PATH=/a\n")), {
-      present: false,
-      version: null,
-    });
-  });
-
-  test("reports present with a null version for an unversioned block", () => {
-    assert.deepEqual(readInstalledBlock(rcWith(`${BEGIN}\nx\n${END}\n`)), {
-      present: true,
-      version: null,
-    });
   });
 });
