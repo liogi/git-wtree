@@ -1,0 +1,57 @@
+name: Publish
+
+# Tags, not merges. Merging means the code is good; tagging means you meant to
+# ship it. Keeping them separate leaves the release an explicit act.
+on:
+  push:
+    tags: ["v*"]
+
+# This one line is the whole authentication story. GitHub mints a short-lived
+# OIDC token, npm checks it against the trusted publisher configured for this
+# repository and this workflow filename, and hands back a credential good for
+# one publish. Nothing long-lived is stored anywhere — renaming this file breaks
+# the trust, which is the trade.
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node 24 for the npm it bundles: trusted publishing needs npm >= 11.5.1,
+      # and Node 22 still ships 10.9.
+      #
+      # No `cache: npm` here, deliberately — npm's own guidance is to avoid
+      # caching in release builds, so that what gets published is built from
+      # what the registry serves today rather than from a restored artifact.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+
+      - run: npm ci
+
+      # A tag is a promise about something that will exist forever. Test before
+      # keeping it, even though CI already tested the commit.
+      - run: npm test
+
+      # Tagging v0.8.1 while package.json still reads 0.8.0 publishes the wrong
+      # version under a name that looks right, and there is no unpublishing.
+      - name: Tag must match package.json
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$pkg" ]; then
+            echo "::error::tag v$tag does not match package.json version $pkg"
+            exit 1
+          fi
+          echo "publishing $pkg"
+
+      # No token, no --provenance flag: publishing through OIDC attaches a
+      # signed attestation on its own, so npmjs.com can show which commit and
+      # which workflow produced this tarball.
+      - run: npm publish
