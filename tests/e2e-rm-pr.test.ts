@@ -127,3 +127,34 @@ describe("gwt pr", () => {
     assert.ok(origin.length > 0);
   });
 });
+
+// Fixing the isMain flag unblocked a path that had been refused by accident, and
+// that path had its own bug: every git call after the removal inherited a cwd
+// that no longer existed. `git worktree remove` succeeded, the follow-up
+// `git worktree prune` died with `spawnSync git ENOENT`, and the command
+// reported failure for work it had already done.
+describe("removing the worktree you are standing in", () => {
+  test("succeeds, and says so", () => {
+    const repo = tmpRepo();
+    runCli(["add", "self"], { cwd: repo });
+    const self = siblingOf(repo, "self");
+
+    const r = runCli(["rm", "self", "--force"], { cwd: self });
+
+    assert.equal(r.code, 0);
+    assert.doesNotMatch(r.output, /ENOENT/);
+    assert.match(r.output, /removed/);
+    assert.equal(existsSync(self), false);
+  });
+
+  test("leaves git's worktree list clean, so prune really ran", () => {
+    const repo = tmpRepo();
+    runCli(["add", "self"], { cwd: repo });
+    runCli(["rm", "self", "--force"], { cwd: siblingOf(repo, "self") });
+
+    const listed = git(repo, "worktree", "list")
+      .split("\n")
+      .filter((l) => l.trim() !== "");
+    assert.equal(listed.length, 1, "only the main worktree remains registered");
+  });
+});

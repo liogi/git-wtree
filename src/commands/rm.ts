@@ -1,5 +1,6 @@
 import { intro, outro, confirm, log, isCancel, cancel } from "@clack/prompts";
 import {
+  getMainWorktree,
   removeWorktree,
   branchExists,
   deleteLocalBranch,
@@ -66,6 +67,14 @@ export async function commandRm(
       process.exit(1);
     }
   }
+
+  // Every git call from here on would inherit a cwd that is about to stop
+  // existing. Removing a worktree from inside itself succeeded and then died on
+  // the follow-up `git worktree prune` with `spawnSync git ENOENT` — reporting
+  // failure for work already done, and skipping the branch prompt. Step out
+  // first; the main worktree is never the one being removed.
+  const main = getMainWorktree();
+  if (main) process.chdir(main.path);
 
   try {
     removeWorktree(worktreePath);
