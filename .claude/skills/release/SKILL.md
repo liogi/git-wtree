@@ -104,7 +104,11 @@ one. Order sections by what the reader needs first:
 4. **Added**
 5. **Changed**
 6. **Fixed — everything else**
-7. **Internal** — dependencies, tests, CI
+7. **Internal** — dependency bumps, a raised Node floor, and notable additions
+   to the repository itself. This section is for the maintainer reading their
+   own history later, not for someone deciding whether to upgrade, so keep it to
+   a line or two per item and never let it justify a release on its own: step 1b
+   still applies. Say plainly when something does not ship.
 
 ### How to write each entry
 
