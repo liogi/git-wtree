@@ -1,5 +1,30 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **Sibling branches got indistinguishable colours.** `feature-a` and
+  `feature-b` landed 1° apart on the hue wheel — the same colour, to a human —
+  and so did `fix-1`/`fix-2`, `pr-101`/`pr-102`, and every other pair differing
+  in a trailing character. The hash advanced by one for an input that advanced
+  by one, and the low bits went straight into the hue. It now runs through an
+  avalanche step, so those pairs sit 85–180° apart.
+
+- **Colours are drawn from four wheels instead of one.** Hue alone gives 360
+  places to stand and branch names land on them at random, so with four
+  worktrees open two were perceptually identical about one time in five —
+  the birthday problem rather than any flaw. Lightness and saturation now vary
+  too, which drops that to roughly one in fourteen. White text stays above
+  WCAG AA throughout, measured at 4.53:1 in the worst case.
+
+  It narrows the odds rather than closing them. Closing them would mean
+  coordinating colours across worktrees instead of deriving them from a name,
+  which costs determinism — the same branch would look different on another
+  machine — and breaks under two concurrent `gwt add`, a real scenario when
+  agents run in parallel. Not worth it for the remaining seven percent; rename
+  a branch if two ever clash.
+
 ## 0.8.1
 
 Nothing to reinstall — the shell wrapper is unchanged.

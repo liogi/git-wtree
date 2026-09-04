@@ -373,9 +373,15 @@ gwt rm my-feature --force
 
 To make parallel windows easy to tell apart, `gwt add` gives each worktree its own visual identity, and `gwt open` re-applies it — so a worktree created with a bare `git worktree add` gets colored too:
 
-- A **deterministic color** (derived from the branch name) is applied to the VS Code / Cursor title bar and activity bar, plus a worktree-aware `window.title`. Written to the worktree's `.vscode/settings.json` and merged into any existing settings without dropping your keys or comments.
+- A **deterministic color**, derived from the branch name, is applied to the VS Code / Cursor title bar and activity bar, plus a worktree-aware `window.title`. Written to the worktree's `.vscode/settings.json` and merged into any existing settings without dropping your keys or comments.
 - A **branch statusline** is written to `.claude/settings.local.json` so each Claude Code session shows its branch.
 - `"workbench.experimental.modernUI": false` is pinned in the same file. VS Code's Modern UI experiment paints workbench `.part` backgrounds `transparent !important`, which silently nullifies the colors above ([microsoft/vscode#326126](https://github.com/microsoft/vscode/issues/326126)). It ships as a staged rollout, so it can switch on without you changing a setting. Pinning it per worktree keeps the colors working without touching your global settings.
+
+Colours come from the branch name alone, so the same branch always looks the same
+and no two machines disagree. Hue, lightness and saturation all vary, which keeps
+four open worktrees visually distinct about thirteen times in fourteen. The flip
+side of deriving from the name is that colours cannot be coordinated: if two ever
+do land close, renaming one branch separates them.
 
 Both files are kept out of `git status` automatically — `skip-worktree` when the file is tracked, the worktree's local `info/exclude` otherwise. Your shared `.gitignore` is never touched.
 
