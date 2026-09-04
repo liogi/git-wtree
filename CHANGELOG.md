@@ -27,13 +27,6 @@ Nothing to reinstall — the shell wrapper is unchanged.
   agents run in parallel. Not worth it for the remaining seven percent; rename
   a branch if two ever clash.
 
-### Internal
-
-- A `/release` skill in `.claude/skills/` prepares releases: it bumps the
-  version, writes the changelog entry from the pull requests merged since the
-  last tag, and stops before tagging. Repository tooling — it is not part of the
-  published package.
-
 ## 0.8.1
 
 Nothing to reinstall — the shell wrapper is unchanged.
