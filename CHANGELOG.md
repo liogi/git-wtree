@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **Some worktree colours barely looked coloured.** Every colour has to be dark
+  enough for white text to stay readable, and VS Code's default chrome is dark
+  too, so the two could drift close: the dullest, darkest quarter of the palette
+  sat ΔE 22 from an unthemed window. That combination is gone. The worst case is
+  now 27, and telling worktrees apart from each other is unaffected — collisions
+  among four stay at seven percent.
+
+  Existing worktrees change colour the next time `gwt add` or `gwt open` themes
+  them.
+
 ## 0.8.2
 
 Nothing to reinstall — the shell wrapper is unchanged.

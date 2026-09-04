@@ -131,6 +131,26 @@ describe("pickColor", () => {
     assert.ok(rate < 0.12, `${(rate * 100).toFixed(0)}% collided, expected under 12%`);
   });
 
+  // Telling worktrees apart from each other is not enough: a themed window has
+  // to look themed. Every colour is dark, because white text has to stay
+  // readable on it, and VS Code's default chrome is dark too — so the two can
+  // drift close. One combination did, and read as an unthemed window.
+  test("every colour is visibly different from the default dark chrome", () => {
+    const DEFAULT_CHROME = "#181818";
+    let worst = Infinity;
+    let worstBranch = "";
+    for (let i = 0; i < 2000; i++) {
+      const branch = `branch/${i}`;
+      const d = deltaE(pickColor(branch).bg, DEFAULT_CHROME);
+      if (d < worst) {
+        worst = d;
+        worstBranch = branch;
+      }
+    }
+    // Measured at 27 with three combinations, 22 with the four-way palette.
+    assert.ok(worst >= 25, `${worstBranch} is only ΔE ${worst.toFixed(0)} from the default`);
+  });
+
   test("the palette really uses more than one wheel", () => {
     const seen = new Set<string>();
     for (let i = 0; i < 500; i++) {
