@@ -1,6 +1,19 @@
 # Changelog
 
-## Unreleased
+## 0.8.3
+
+Nothing to reinstall — the shell wrapper is unchanged.
+
+### Changed
+
+- **The README leads with what the tool does.** The first three sections used to
+  be shell-integration setup — oh-my-zsh alias conflicts and PATH ordering — and
+  per-worktree colour, the thing no other worktree tool does, sat at line 372 of
+  466 with no picture. Pitch and screenshot now come first, install and usage
+  next, shell integration once you know why you want it, and the release
+  procedure at the end where a user of the package can ignore it. Nothing was
+  dropped; the warning that `gwt` needs the shell integration is still in
+  `Usage`, in six lines instead of a section at the door.
 
 ### Fixed
 
@@ -13,6 +26,13 @@
 
   Existing worktrees change colour the next time `gwt add` or `gwt open` themes
   them.
+
+### Internal
+
+- A `.DS_Store` slipped into the repository with the palette fix and is now
+  removed and gitignored. It never reached the package — `files` in
+  package.json only ever carried `dist`, `CHANGELOG.md`, `LICENSE` and
+  `README.md`.
 
 ## 0.8.2
 
