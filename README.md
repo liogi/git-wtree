@@ -1,8 +1,16 @@
 # git-wtree
 
-> Git worktree manager with .env syncing and IDE integration
+> Worktrees that are ready to work in.
 
-Streamline your git worktree workflow: create isolated branches, sync environment files, install dependencies, give each worktree its own editor color, and — with `--open` — launch your IDE, all in one command.
+**`git worktree add` gives you an empty directory. `gwt add` gives you a working
+one** — your `.env` files copied, your dependencies installed, and its own colour in
+VS Code so you can tell your windows apart.
+
+![Two VS Code windows, one with a slate title bar and one amber, each showing its
+own worktree and branch](https://raw.githubusercontent.com/liogi/git-wtree/main/docs/worktree-colours.png)
+
+The colour comes from the branch name, so the same branch always looks the same.
+Nothing to configure, and nothing to pick.
 
 ## Install
 
@@ -13,38 +21,16 @@ npm install -g git-wtree
 ## Usage
 
 ```bash
-gitwtree <command>
-# or
-gwt <command>
+gitwtree add my-feature     # always works
+gwt add my-feature          # the same, shorter
 ```
 
-## Shell integration (recommended)
+`gitwtree` is the name nothing else claims. `gwt` is the same command plus
+`gwt switch`, and needs the one-time
+[shell integration](#shell-integration-recommended) — which also frees the name
+from oh-my-zsh's git plugin, where `gwt` is an alias for `git worktree`.
 
-Run this once — it enables `gwt switch` (jumping between worktrees) and, on zsh + oh-my-zsh, frees the `gwt` name from the git plugin's alias:
-
-```bash
-gitwtree shell-init --install
-```
-
-It detects your shell, writes three lines to your rc (`~/.zshrc`, `~/.bashrc`, or
-`~/.config/fish/config.fish`) and the wrapper itself to
-`~/.config/git-wtree/init.<shell>`. Then **open a new terminal**.
-
-**You should only ever need to run this once.** The rc line is a loader — the same shape nvm and
-bun use — so upgrading git-wtree never touches it. When a new version changes the wrapper, the
-next `gwt` command rewrites it and the next terminal picks it up.
-
-> **Why `gitwtree` and not `gwt`?** oh-my-zsh's git plugin aliases `gwt` (and `gwta`, `gwtls`, …) to `git worktree`, which shadows this CLI. `gitwtree` is never aliased, so it always works; the block it installs clears those aliases and defines a `gwt` function that wins. If `gwt` runs `git worktree`, you haven't run the integration yet — run `gitwtree shell-init --install`, or use `gitwtree` directly.
-
-**Manual alternative.** If you'd rather not let a command edit your rc, append the block yourself (put it **after** any PATH setup, e.g. nvm/fnm, so `gitwtree` resolves) and open a new terminal:
-
-```bash
-gitwtree shell-init zsh >> ~/.zshrc   # or: bash | fish
-```
-
-That prints the loader and writes the wrapper file, so it is `--install` minus the rc edit. Neither form calls `gitwtree` at shell startup, so both are robust regardless of where your PATH is configured. To remove everything later: `gitwtree shell-init --uninstall`.
-
-### Commands
+## Commands
 
 | Command                             | Description                                                   |
 | ----------------------------------- | ------------------------------------------------------------- |
@@ -176,28 +162,6 @@ Removing the worktree you are standing in returns you to the main worktree rathe
 
 `query` is a substring match on the branch name. If it matches exactly one worktree you go straight there; if it's ambiguous or omitted, you get an arrow-key picker (same style as the rest of the prompts). (`gwt path [query]` is the underlying primitive the wrapper calls — it resolves the worktree and writes the path back to the wrapper.)
 
-### `gwt doctor`
-
-Checks the install: `git` availability, the `gitwtree` version, and whether the shell-integration block is present in your rc (and whether its version matches — if not, it tells you to re-run `gitwtree shell-init --install`).
-
-```bash
-gwt doctor
-```
-
-It answers two separate questions, and the second is the one that usually matters:
-
-1. **Is the block written to your rc?** — read from the file.
-2. **Is it active in *this* shell?** — the block exports `GWT_SHELL_INTEGRATION`, which every command it launches inherits.
-
-A block that is installed but never sourced, or shadowed by oh-my-zsh's `gwt` alias, looks exactly like a missing one from the outside. `doctor` tells them apart:
-
-```
-◆  Shell integration installed in ~/.zshrc (v1.2.3)
-▲  Installed, but not active in this shell — GWT_SHELL_INTEGRATION is unset.
-     Either you haven't opened a new terminal since installing, or something
-     (oh-my-zsh's git plugin aliases gwt) is shadowing it.
-```
-
 ### `gwt prune` — clean up finished work
 
 The problem the tool creates by working well: after a few months you have a dozen
@@ -246,6 +210,29 @@ run before each removal, subject to the same `gwt trust` approval.
 **Branches are never deleted.** Removing a worktree frees a directory; deleting a
 branch discards history. `gwt rm` asks you about the second one at a time — a bulk
 command is the wrong place to decide it for you.
+
+### How the colours work
+
+To make parallel windows easy to tell apart, `gwt add` gives each worktree its own visual identity, and `gwt open` re-applies it — so a worktree created with a bare `git worktree add` gets colored too:
+
+- A **deterministic color**, derived from the branch name, is applied to the VS Code / Cursor title bar and activity bar, plus a worktree-aware `window.title`. Written to the worktree's `.vscode/settings.json` and merged into any existing settings without dropping your keys or comments.
+- A **branch statusline** is written to `.claude/settings.local.json` so each Claude Code session shows its branch.
+- `"workbench.experimental.modernUI": false` is pinned in the same file. VS Code's Modern UI experiment paints workbench `.part` backgrounds `transparent !important`, which silently nullifies the colors above ([microsoft/vscode#326126](https://github.com/microsoft/vscode/issues/326126)). It ships as a staged rollout, so it can switch on without you changing a setting. Pinning it per worktree keeps the colors working without touching your global settings.
+
+Colours come from the branch name alone, so the same branch always looks the same
+and no two machines disagree. Hue, lightness and saturation all vary, which keeps
+four open worktrees visually distinct about thirteen times in fourteen. The flip
+side of deriving from the name is that colours cannot be coordinated: if two ever
+do land close, renaming one branch separates them.
+
+Both files are kept out of `git status` automatically — `skip-worktree` when the file is tracked, the worktree's local `info/exclude` otherwise. Your shared `.gitignore` is never touched.
+
+Toggle either feature (both on by default):
+
+```bash
+gwt config theme off        # disable color + window title
+gwt config statusline off   # disable the Claude statusline
+```
 
 ### `.env` syncing
 
@@ -369,30 +356,83 @@ gwt rm my-feature
 gwt rm my-feature --force
 ```
 
-### Worktree theming
+## Worktree location
 
-To make parallel windows easy to tell apart, `gwt add` gives each worktree its own visual identity, and `gwt open` re-applies it — so a worktree created with a bare `git worktree add` gets colored too:
+Worktrees are created as siblings of your repo directory:
 
-- A **deterministic color**, derived from the branch name, is applied to the VS Code / Cursor title bar and activity bar, plus a worktree-aware `window.title`. Written to the worktree's `.vscode/settings.json` and merged into any existing settings without dropping your keys or comments.
-- A **branch statusline** is written to `.claude/settings.local.json` so each Claude Code session shows its branch.
-- `"workbench.experimental.modernUI": false` is pinned in the same file. VS Code's Modern UI experiment paints workbench `.part` backgrounds `transparent !important`, which silently nullifies the colors above ([microsoft/vscode#326126](https://github.com/microsoft/vscode/issues/326126)). It ships as a staged rollout, so it can switch on without you changing a setting. Pinning it per worktree keeps the colors working without touching your global settings.
-
-Colours come from the branch name alone, so the same branch always looks the same
-and no two machines disagree. Hue, lightness and saturation all vary, which keeps
-four open worktrees visually distinct about thirteen times in fourteen. The flip
-side of deriving from the name is that colours cannot be coordinated: if two ever
-do land close, renaming one branch separates them.
-
-Both files are kept out of `git status` automatically — `skip-worktree` when the file is tracked, the worktree's local `info/exclude` otherwise. Your shared `.gitignore` is never touched.
-
-Toggle either feature (both on by default):
-
-```bash
-gwt config theme off        # disable color + window title
-gwt config statusline off   # disable the Claude statusline
+```
+~/projects/
+  myrepo/           ← main repo
+  myrepo-my-feature ← worktree created by gwt
 ```
 
-## Development
+## Shell integration (recommended)
+
+Run this once — it enables `gwt switch` (jumping between worktrees) and, on zsh + oh-my-zsh, frees the `gwt` name from the git plugin's alias:
+
+```bash
+gitwtree shell-init --install
+```
+
+It detects your shell, writes three lines to your rc (`~/.zshrc`, `~/.bashrc`, or
+`~/.config/fish/config.fish`) and the wrapper itself to
+`~/.config/git-wtree/init.<shell>`. Then **open a new terminal**.
+
+**You should only ever need to run this once.** The rc line is a loader — the same shape nvm and
+bun use — so upgrading git-wtree never touches it. When a new version changes the wrapper, the
+next `gwt` command rewrites it and the next terminal picks it up.
+
+> **Why `gitwtree` and not `gwt`?** oh-my-zsh's git plugin aliases `gwt` (and `gwta`, `gwtls`, …) to `git worktree`, which shadows this CLI. `gitwtree` is never aliased, so it always works; the block it installs clears those aliases and defines a `gwt` function that wins. If `gwt` runs `git worktree`, you haven't run the integration yet — run `gitwtree shell-init --install`, or use `gitwtree` directly.
+
+**Manual alternative.** If you'd rather not let a command edit your rc, append the block yourself (put it **after** any PATH setup, e.g. nvm/fnm, so `gitwtree` resolves) and open a new terminal:
+
+```bash
+gitwtree shell-init zsh >> ~/.zshrc   # or: bash | fish
+```
+
+That prints the loader and writes the wrapper file, so it is `--install` minus the rc edit. Neither form calls `gitwtree` at shell startup, so both are robust regardless of where your PATH is configured. To remove everything later: `gitwtree shell-init --uninstall`.
+
+## Troubleshooting
+
+### `gwt doctor`
+
+Checks the install: `git` availability, the `gitwtree` version, and whether the shell-integration block is present in your rc (and whether its version matches — if not, it tells you to re-run `gitwtree shell-init --install`).
+
+```bash
+gwt doctor
+```
+
+It answers two separate questions, and the second is the one that usually matters:
+
+1. **Is the block written to your rc?** — read from the file.
+2. **Is it active in *this* shell?** — the block exports `GWT_SHELL_INTEGRATION`, which every command it launches inherits.
+
+A block that is installed but never sourced, or shadowed by oh-my-zsh's `gwt` alias, looks exactly like a missing one from the outside. `doctor` tells them apart:
+
+```
+◆  Shell integration installed in ~/.zshrc (v1.2.3)
+▲  Installed, but not active in this shell — GWT_SHELL_INTEGRATION is unset.
+     Either you haven't opened a new terminal since installing, or something
+     (oh-my-zsh's git plugin aliases gwt) is shadowing it.
+```
+
+## Supported IDEs
+
+VS Code, Cursor, Zed, WebStorm, IntelliJ IDEA, PyCharm, GoLand, Vim, Neovim, Sublime Text — or any custom IDE via the "Other" option in the wizard.
+
+## Requirements
+
+- Node.js >= 22.12
+- Git >= 2.5
+- `gitwtree` on your `PATH`. `npm install -g` handles this normally. If you use a **lazy-loaded nvm** (or similar), make sure your global npm bin directory is exported on shell startup — otherwise `gitwtree`/`gwt` won't resolve in a new shell. git-wtree assumes it's runnable; it deliberately doesn't touch your `PATH`.
+
+## License
+
+MIT
+
+## For maintainers
+
+### Development
 
 ```bash
 npm test          # builds, type-checks the tests, runs them
@@ -408,17 +448,7 @@ cannot execute a shell command, an unapproved `.gitwtree.json` cannot run its
 commands, `gwt add` cannot discard unpushed commits, and `shellQuote` round-trips
 every metacharacter a git refname allows.
 
-## Worktree location
-
-Worktrees are created as siblings of your repo directory:
-
-```
-~/projects/
-  myrepo/           ← main repo
-  myrepo-my-feature ← worktree created by gwt
-```
-
-## Releasing
+### Releasing
 
 Ask Claude Code for `/release patch` (or `minor`, `major`). It checks the tree,
 bumps the version, reads the pull requests merged since the last tag, writes the
@@ -456,17 +486,3 @@ npm stage approve <id>       # asks for 2FA
 
 Provenance is attached automatically, so npmjs.com shows which commit and which
 workflow produced the tarball.
-
-## Supported IDEs
-
-VS Code, Cursor, Zed, WebStorm, IntelliJ IDEA, PyCharm, GoLand, Vim, Neovim, Sublime Text — or any custom IDE via the "Other" option in the wizard.
-
-## Requirements
-
-- Node.js >= 22.12
-- Git >= 2.5
-- `gitwtree` on your `PATH`. `npm install -g` handles this normally. If you use a **lazy-loaded nvm** (or similar), make sure your global npm bin directory is exported on shell startup — otherwise `gitwtree`/`gwt` won't resolve in a new shell. git-wtree assumes it's runnable; it deliberately doesn't touch your `PATH`.
-
-## License
-
-MIT
