@@ -66,6 +66,25 @@ describe("pickColor", () => {
     return (Math.round(h * 60) + 360) % 360;
   }
 
+  // CIE76: perceptual distance in Lab. ΔE below ~5 reads as the same colour.
+  function deltaE(hexA: string, hexB: string): number {
+    const toLab = (hex: string): [number, number, number] => {
+      const lin = (c: number) =>
+        c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+      const [r, g, b] = [1, 3, 5].map((i) =>
+        lin(parseInt(hex.slice(i, i + 2), 16) / 255),
+      );
+      const f = (t: number) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+      const x = f((r * 0.4124 + g * 0.3576 + b * 0.1805) / 0.95047);
+      const y = f(r * 0.2126 + g * 0.7152 + b * 0.0722);
+      const z = f((r * 0.0193 + g * 0.1192 + b * 0.9505) / 1.08883);
+      return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
+    };
+    const [l1, a1, b1] = toLab(hexA);
+    const [l2, a2, b2] = toLab(hexB);
+    return Math.hypot(l1 - l2, a1 - a2, b1 - b2);
+  }
+
   function hueGap(a: string, b: string): number {
     const d = Math.abs(hueOf(pickColor(a).bg) - hueOf(pickColor(b).bg));
     return Math.min(d, 360 - d);
@@ -79,6 +98,53 @@ describe("pickColor", () => {
   // pair always lands close by chance — `release/1.0.0` and `release/1.0.1` sit
   // 27° apart today. That is the birthday problem, not a defect, and tuning a
   // threshold until it passes would only hide it.
+  // Hue alone left two of four worktrees perceptually identical one time in
+  // five. Lightness and saturation each add a second value, turning one wheel
+  // into four. Asserted through CIE76 ΔE rather than hue degrees, because
+  // degrees are not perception: 27° apart is invisible in one part of the wheel
+  // and obvious in another.
+  test("four worktrees rarely collide", () => {
+    const words = ["feat", "fix", "chore", "docs", "perf", "test", "spike"];
+    const tails = ["login", "auth", "parser", "cache", "api", "ui", "deps"];
+
+    let collisions = 0;
+    const runs = 400;
+    for (let run = 0; run < runs; run++) {
+      const names = new Set<string>();
+      while (names.size < 4) {
+        names.add(
+          `${words[run % words.length]}/${tails[(run * 3 + names.size) % tails.length]}-${run}${names.size}`,
+        );
+      }
+      const colours = [...names].map((n) => pickColor(n).bg);
+      let worst = Infinity;
+      for (let i = 0; i < colours.length; i++) {
+        for (let j = i + 1; j < colours.length; j++) {
+          worst = Math.min(worst, deltaE(colours[i], colours[j]));
+        }
+      }
+      if (worst < 5) collisions++;
+    }
+
+    const rate = collisions / runs;
+    // Measured at ~7% with the four-wheel palette, ~20% with hue alone.
+    assert.ok(rate < 0.12, `${(rate * 100).toFixed(0)}% collided, expected under 12%`);
+  });
+
+  test("the palette really uses more than one wheel", () => {
+    const seen = new Set<string>();
+    for (let i = 0; i < 500; i++) {
+      const { bg } = pickColor(`branch-${i}`);
+      // Lightness and saturation both change the maximum channel value; two
+      // distinct maxima mean the extra axes are live rather than dead constants.
+      const max = Math.max(
+        ...[1, 3, 5].map((k) => parseInt(bg.slice(k, k + 2), 16)),
+      );
+      seen.add(String(max));
+    }
+    assert.ok(seen.size >= 3, `only ${seen.size} distinct brightness levels`);
+  });
+
   test("a one-character change moves the colour a lot, on average", () => {
     // Avalanche is a statistical property; assert it as one rather than on a
     // single lucky pair.

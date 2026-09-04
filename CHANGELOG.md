@@ -11,10 +11,19 @@
   by one, and the low bits went straight into the hue. It now runs through an
   avalanche step, so those pairs sit 85–180° apart.
 
-  This does not guarantee separation: hues are uniform over the wheel, so with
-  four worktrees some pair lands within 30° about seven times in ten. No
-  stateless function can avoid that — a colour derived only from a branch name
-  cannot know what the other branches are.
+- **Colours are drawn from four wheels instead of one.** Hue alone gives 360
+  places to stand and branch names land on them at random, so with four
+  worktrees open two were perceptually identical about one time in five —
+  the birthday problem rather than any flaw. Lightness and saturation now vary
+  too, which drops that to roughly one in fourteen. White text stays above
+  WCAG AA throughout, measured at 4.53:1 in the worst case.
+
+  It narrows the odds rather than closing them. Closing them would mean
+  coordinating colours across worktrees instead of deriving them from a name,
+  which costs determinism — the same branch would look different on another
+  machine — and breaks under two concurrent `gwt add`, a real scenario when
+  agents run in parallel. Not worth it for the remaining seven percent; rename
+  a branch if two ever clash.
 
 ## 0.8.1
 
