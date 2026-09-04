@@ -104,12 +104,11 @@ one. Order sections by what the reader needs first:
 4. **Added**
 5. **Changed**
 6. **Fixed — everything else**
-7. **Internal** — only what a reader could notice from outside: a dependency
-   bump that changes what gets installed, a raised Node floor. Not repository
-   tooling. Step 1b already says `.claude/`, `.github/` and `tests/` never reach
-   the package; describing them to users in a file that ships with it
-   contradicts that. If it cannot justify a release, it does not belong in the
-   notes for one.
+7. **Internal** — dependency bumps, a raised Node floor, and notable additions
+   to the repository itself. This section is for the maintainer reading their
+   own history later, not for someone deciding whether to upgrade, so keep it to
+   a line or two per item and never let it justify a release on its own: step 1b
+   still applies. Say plainly when something does not ship.
 
 ### How to write each entry
 
