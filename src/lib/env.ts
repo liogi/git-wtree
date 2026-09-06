@@ -16,16 +16,22 @@ const EXCLUDED_DIRS = new Set([
 
 const ENV_PATTERN = /^\.env/;
 
-const EXCLUDED_FILES = new Set([
-  ".env.test",
-  ".env.example",
-  ".env.tpl",
-  ".env.template",
-  ".env.sample",
-]);
+// Templates, examples and test fixtures are committed, so their content belongs
+// to the branch: copying the main worktree's version over a branch that edited
+// one produces a diff nobody asked for. Matching by exact name missed every
+// prefixed form — `.env.development.tpl`, `.env.production.tpl` — which is the
+// shape real repositories use, so the check is on the suffix instead.
+const EXCLUDED_SUFFIXES = [
+  ".example",
+  ".sample",
+  ".template",
+  ".test",
+  ".tpl",
+];
 
 function isEnvFile(name: string): boolean {
-  return ENV_PATTERN.test(name) && !EXCLUDED_FILES.has(name);
+  if (!ENV_PATTERN.test(name)) return false;
+  return !EXCLUDED_SUFFIXES.some((suffix) => name.endsWith(suffix));
 }
 
 function scanDir(

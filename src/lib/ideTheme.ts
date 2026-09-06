@@ -15,7 +15,8 @@ const FORMATTING = { tabSize: 2, insertSpaces: true };
 // four open, two are perceptually identical (ΔE < 5) about one time in five.
 //
 // Varying lightness and saturation as well turns one wheel into three, which
-// drops that to roughly one in fourteen. Both variants of each keep white text
+// drops that to roughly one in eleven — 8.8%, measured over 20,000 draws of four
+// branch names. Both variants of each keep white text
 // above WCAG AA — measured at 4.53:1 in the worst case, against the 4.5 floor —
 // so the readability the fixed values protected is not traded away for it.
 //
@@ -23,7 +24,7 @@ const FORMATTING = { tabSize: 2, insertSpaces: true };
 // be coordinated across worktrees rather than derived from a name, which costs
 // determinism (the same branch would look different on another machine) and
 // breaks under two concurrent `gwt add` — a real scenario for anyone running
-// parallel agents. Not worth it for the remaining eight percent.
+// parallel agents. Not worth it for the remaining nine percent.
 // Three combinations, not the four that hue × lightness × saturation allows.
 // The darkest and dullest of them (0.42 / 0.22) sat ΔE 22 from VS Code's default
 // dark chrome — close enough that a themed window read as barely themed at all.

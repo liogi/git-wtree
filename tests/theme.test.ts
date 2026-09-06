@@ -127,7 +127,9 @@ describe("pickColor", () => {
     }
 
     const rate = collisions / runs;
-    // Measured at ~7% with the four-wheel palette, ~20% with hue alone.
+    // Measured at 8.8% over 20,000 draws with the three-combination palette,
+    // against ~20% with hue alone. The 400 structured runs below are a guard, not
+    // a measurement — they sample too few to pin the rate, so the bound is loose.
     assert.ok(rate < 0.12, `${(rate * 100).toFixed(0)}% collided, expected under 12%`);
   });
 
