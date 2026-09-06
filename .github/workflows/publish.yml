@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # No `cache: npm` here, deliberately — npm's own guidance is to avoid
       # caching in release builds, so what ships is built from what the registry
@@ -32,7 +32,7 @@ jobs:
       # placeholder, npm finds credentials, uses them, and never falls back to
       # OIDC — failing with E401 as though the token had expired. Publishing
       # goes to registry.npmjs.org by default anyway.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "24"
 

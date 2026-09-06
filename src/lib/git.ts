@@ -394,6 +394,24 @@ export function worktreeStatus(worktreePath: string): WorktreeStatus {
   return status;
 }
 
+/**
+ * Relative paths of the `.env*` files git tracks in `root`, forward-slashed.
+ *
+ * Scoped by pathspec deliberately: a bare `git ls-files` runs past a megabyte on
+ * a large monorepo, which is over execFileSync's default buffer — measured at
+ * 1.09 MB on one, against 1.7 KB for this pathspec. An unreadable index is not
+ * worth failing a sync over, so a failure here yields the empty set and the
+ * suffix rules stand alone.
+ */
+export function trackedEnvFiles(root: string): Set<string> {
+  try {
+    const out = run("git", ["ls-files", "-z", "--", "*.env*"], root);
+    return new Set(out.split("\0").filter(Boolean));
+  } catch {
+    return new Set();
+  }
+}
+
 export function listWorktrees(): WorktreeEntry[] {
   const output = run(
     "git",

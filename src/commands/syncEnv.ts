@@ -65,13 +65,23 @@ export async function commandSyncEnv(
   }));
 
   let actionableTotal = 0;
+  let trackedTotal = 0;
   for (const { target, plan } of plans) {
-    const actionable = plan.filter((e) => e.status !== "skipped");
+    const actionable = plan.filter(
+      (e) => e.status === "new" || e.status === "overwrite",
+    );
+    trackedTotal += plan.filter((e) => e.status === "tracked").length;
     actionableTotal += actionable.length;
     const lines = actionable.length
       ? actionable.map((e) => `    ${label(e)}  ${e.relPath}`).join("\n")
       : "    (nothing to copy)";
     log.step(`→ ${target.branch}\n${lines}`);
+  }
+
+  if (trackedTotal > 0) {
+    log.info(
+      `${trackedTotal} versioned file(s) left alone — git owns them, so they arrive with the branch.`,
+    );
   }
 
   if (actionableTotal === 0) {

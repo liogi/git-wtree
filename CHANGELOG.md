@@ -1,5 +1,45 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **`gwt sync-env` overwrote committed `.env` templates.** The scan skipped
+  `.env.tpl`, `.env.example` and their three siblings by exact name, so every
+  prefixed form went through — `.env.development.tpl`, `.env.production.tpl`,
+  `.env.development.example`. Those files are usually tracked by git, so the main
+  worktree's copy landed on top of a branch that had edited one, and `git status`
+  showed a change nobody made. A monorepo naming its templates per environment
+  had 44 of them.
+
+  The check is on the suffix now, so `.env.<anything>.tpl` is skipped whatever
+  environment it names. `.env.test.local` is still copied — it is a local
+  override, not a committed fixture.
+
+- **And a suffix list is still a guess, so git decides.** A repository that
+  versions `.env.defaults` — no template suffix anywhere — had the same bug in a
+  different shape. `sync-env` now leaves any file git tracks in the destination
+  alone, whatever it is called, and says how many it left. The suffix rules stay
+  on top, because they carry an intent the index cannot: an untracked
+  `.env.example` is still an example.
+
+  The lookup is one `git ls-files` scoped by pathspec. That is deliberate — a
+  bare listing runs to 1.09 MB on a large monorepo, past `execFileSync`'s default
+  buffer, against 1.7 KB scoped.
+
+### Internal
+
+- `actions/checkout` and `actions/setup-node` go from v4 to v7, which ends the
+  Node 20 deprecation warning on the runners. `setup-node` v7 also drops the
+  dummy `NODE_AUTH_TOKEN` export that made `registry-url` return E401 against
+  npm's trusted publisher — the workaround of leaving `registry-url` out is no
+  longer load-bearing, though it stays, since the publish path works.
+
+- The collision rate for four worktree colours is **8.8%**, measured over 20,000
+  draws. The code said eight percent in one place and one in fourteen in another,
+  and 0.8.3's entry below says seven; the first was closest. The comments and the
+  test now carry the measured figure.
+
 ## 0.8.3
 
 Nothing to reinstall — the shell wrapper is unchanged.
