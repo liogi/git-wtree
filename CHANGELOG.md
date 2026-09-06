@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.8.4
+
+Nothing to reinstall — the shell wrapper is unchanged. `gwt sync-env` copies
+fewer files than it did, on purpose; the two entries below say which and why.
 
 ### Fixed
 
@@ -9,36 +12,41 @@
   prefixed form went through — `.env.development.tpl`, `.env.production.tpl`,
   `.env.development.example`. Those files are usually tracked by git, so the main
   worktree's copy landed on top of a branch that had edited one, and `git status`
-  showed a change nobody made. A monorepo naming its templates per environment
-  had 44 of them.
+  showed a change nobody made. Run `git add -A` after that and you commit the
+  main worktree's template into your branch. One monorepo had 44 such files.
 
   The check is on the suffix now, so `.env.<anything>.tpl` is skipped whatever
   environment it names. `.env.test.local` is still copied — it is a local
   override, not a committed fixture.
 
-- **And a suffix list is still a guess, so git decides.** A repository that
+- **And a suffix list is only a guess, so git decides.** A repository that
   versions `.env.defaults` — no template suffix anywhere — had the same bug in a
-  different shape. `sync-env` now leaves any file git tracks in the destination
-  alone, whatever it is called, and says how many it left. The suffix rules stay
-  on top, because they carry an intent the index cannot: an untracked
-  `.env.example` is still an example.
+  different shape. `sync-env` now leaves alone any file git tracks in the
+  destination, whatever it is called, and says how many it left. The suffix rules
+  stay on top of that, because they carry an intent an index cannot: an untracked
+  `.env.example` is still an example, and the guard yields nothing when git fails
+  or when a repository has committed nothing yet.
 
-  The lookup is one `git ls-files` scoped by pathspec. That is deliberate — a
-  bare listing runs to 1.09 MB on a large monorepo, past `execFileSync`'s default
-  buffer, against 1.7 KB scoped.
+  Measured on the monorepo that surfaced this: of 68 `.env*` files, the 40 git
+  tracks are now left alone and the 28 it does not are still copied — nothing on
+  the wrong side of either rule.
 
 ### Internal
 
 - `actions/checkout` and `actions/setup-node` go from v4 to v7, which ends the
   Node 20 deprecation warning on the runners. `setup-node` v7 also drops the
   dummy `NODE_AUTH_TOKEN` export that made `registry-url` return E401 against
-  npm's trusted publisher — the workaround of leaving `registry-url` out is no
-  longer load-bearing, though it stays, since the publish path works.
+  npm's trusted publisher, so that workaround is no longer load-bearing — it
+  stays anyway, since the publish path works.
 
-- The collision rate for four worktree colours is **8.8%**, measured over 20,000
-  draws. The code said eight percent in one place and one in fourteen in another,
-  and 0.8.3's entry below says seven; the first was closest. The comments and the
-  test now carry the measured figure.
+- The tracked-file lookup is one `git ls-files` scoped by pathspec. A bare
+  listing measures 1.09 MB on a large monorepo, past `execFileSync`'s default
+  buffer, against 1.7 KB scoped.
+
+- Four worktree colours collide 8.8% of the time, measured over 20,000 draws.
+  The code said eight percent in one place and one in fourteen in another, and
+  0.8.3 below says seven; the first was closest. The comments and the test now
+  carry the measured figure. No colour changes.
 
 ## 0.8.3
 
