@@ -2,7 +2,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
-import { tmpDir, write } from "./helpers/fixtures.ts";
+import { tmpDir, tmpRepo, git, write } from "./helpers/fixtures.ts";
 import { planEnvSync, applyEnvSync } from "../dist/lib/env.js";
 
 function source(files: Record<string, string>): string {
@@ -65,6 +65,37 @@ describe("planEnvSync", () => {
     });
     const names = planEnvSync(src, tmpDir("dest-")).map((e) => e.relPath).sort();
     assert.deepEqual(names, [".env", ".env.development", ".env.local"]);
+  });
+
+  // The suffix list is a guess about intent; this is the rule. A repository that
+  // versions `.env.defaults` — no template suffix anywhere — must still not have
+  // it overwritten, or `git status` reports a change the user never made.
+  test("a file git tracks in the destination is never copied", () => {
+    const src = source({ ".env": "from main", ".env.defaults": "from main" });
+    const dest = tmpRepo("dest");
+    write(path.join(dest, ".env.defaults"), "from the branch");
+    git(dest, "add", ".env.defaults");
+    git(dest, "commit", "-q", "-m", "defaults");
+
+    const plan = planEnvSync(src, dest);
+    assert.equal(statusOf(plan, ".env.defaults"), "tracked");
+    assert.equal(statusOf(plan, ".env"), "new");
+
+    assert.equal(applyEnvSync(src, dest, plan), 1);
+    assert.equal(
+      readFileSync(path.join(dest, ".env.defaults"), "utf8"),
+      "from the branch",
+    );
+  });
+
+  test("an untracked file of the same name is copied", () => {
+    const src = source({ ".env.defaults": "from main" });
+    const dest = tmpRepo("dest");
+    write(path.join(dest, ".env.defaults"), "local");
+
+    const plan = planEnvSync(src, dest);
+    assert.equal(statusOf(plan, ".env.defaults"), "overwrite");
+    assert.equal(applyEnvSync(src, dest, plan), 1);
   });
 
   test("scanDirs restricts the scan, and a missing one is ignored", () => {

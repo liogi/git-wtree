@@ -14,7 +14,18 @@
 
   The check is on the suffix now, so `.env.<anything>.tpl` is skipped whatever
   environment it names. `.env.test.local` is still copied — it is a local
-  override, not a committed fixture. Nothing else changes.
+  override, not a committed fixture.
+
+- **And a suffix list is still a guess, so git decides.** A repository that
+  versions `.env.defaults` — no template suffix anywhere — had the same bug in a
+  different shape. `sync-env` now leaves any file git tracks in the destination
+  alone, whatever it is called, and says how many it left. The suffix rules stay
+  on top, because they carry an intent the index cannot: an untracked
+  `.env.example` is still an example.
+
+  The lookup is one `git ls-files` scoped by pathspec. That is deliberate — a
+  bare listing runs to 1.09 MB on a large monorepo, past `execFileSync`'s default
+  buffer, against 1.7 KB scoped.
 
 ### Internal
 

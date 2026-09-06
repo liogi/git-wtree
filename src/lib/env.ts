@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { log } from "@clack/prompts";
+import { trackedEnvFiles } from "./git.js";
 
 const EXCLUDED_DIRS = new Set([
   "node_modules",
@@ -76,7 +77,7 @@ function findFiles(
   return files;
 }
 
-export type EnvSyncStatus = "new" | "overwrite" | "skipped";
+export type EnvSyncStatus = "new" | "overwrite" | "skipped" | "tracked";
 
 export interface EnvSyncEntry {
   relPath: string;
@@ -84,16 +85,29 @@ export interface EnvSyncEntry {
 }
 
 // Builds the list of .env* files to copy from source to dest, classifying each:
-// "overwrite" (dest already has the file), "new" (absent), or "skipped" (the
-// file's parent directory doesn't exist in the destination worktree).
+// "overwrite" (dest already has the file), "new" (absent), "skipped" (the file's
+// parent directory doesn't exist in the destination worktree), or "tracked".
+//
+// "tracked" is the correctness rule the suffix list only approximates: a file
+// git versions has content that belongs to the branch, so writing the main
+// worktree's copy over it produces a change the user never made — and commits it
+// on the next `git add -A`. The suffix list stays, because it carries intent an
+// index cannot: an untracked `.env.example` is still an example.
+//
+// The check is on the destination, since that is the working tree a spurious
+// diff would appear in.
 export function planEnvSync(
   sourceRoot: string,
   destRoot: string,
   scanDirs?: string[] | null,
 ): EnvSyncEntry[] {
   const files = findFiles(sourceRoot, isEnvFile, scanDirs);
+  const tracked = trackedEnvFiles(destRoot);
   return files.map((src) => {
     const relPath = path.relative(sourceRoot, src);
+    if (tracked.has(relPath.split(path.sep).join("/"))) {
+      return { relPath, status: "tracked" };
+    }
     const dest = path.join(destRoot, relPath);
     if (!fs.existsSync(path.dirname(dest))) {
       return { relPath, status: "skipped" };
@@ -110,7 +124,7 @@ export function applyEnvSync(
 ): number {
   let copied = 0;
   for (const entry of plan) {
-    if (entry.status === "skipped") continue;
+    if (entry.status !== "new" && entry.status !== "overwrite") continue;
     fs.copyFileSync(
       path.join(sourceRoot, entry.relPath),
       path.join(destRoot, entry.relPath),
