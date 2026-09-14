@@ -55,6 +55,10 @@ describe("gwt add --from", () => {
     git(path.dirname(repo), "clone", "-q", origin, other);
     git(other, "config", "user.email", "them@example.com");
     git(other, "config", "user.name", "Them");
+    // The bare origin's HEAD still points at whatever init.defaultBranch was
+    // when it was created, which is not `main` on every runner — so the clone
+    // may land nowhere. Name the branch rather than trusting the checkout.
+    git(other, "checkout", "-q", "-B", "main", "origin/main");
     git(other, "commit", "-q", "--allow-empty", "-m", "landed after our last fetch");
     git(other, "push", "-q", "origin", "main");
 
