@@ -1,6 +1,13 @@
 # Changelog
 
-## Unreleased
+## 0.8.5
+
+Nothing to reinstall — the shell wrapper is unchanged. Three behaviours do
+change, all of them guards rather than features: `gwt rm` refuses a worktree
+with live processes even under `--force`, and `--from` now fetches its base and
+stops the new branch inheriting that base as its upstream. A script that relied
+on `gwt rm --force` succeeding against a running worktree will now stop —
+which is the point, since what it succeeded at was half-deleting it.
 
 ### Fixed — data loss
 
