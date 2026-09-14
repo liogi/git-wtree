@@ -49,7 +49,10 @@ describe("gwt rm with a live worktree", () => {
   // process, the final rmdir fails, and git has already deregistered the
   // worktree — so the retry says "No worktree matching" and the half-emptied
   // directory can only be finished by hand.
-  test("refuses without a terminal, and --force does not override it", async () => {
+  // Refused, not prompted — the same shape as the dirty-tree guard, and for a
+  // stronger reason: the detection is a heuristic, so a false positive must cost
+  // a confused user rather than a killed process.
+  test("refuses, and --force does not override it", async () => {
     const { repo } = tmpRepoWithRemote();
     runCli(["add", "doomed"], { cwd: repo });
     const worktree = path.join(path.dirname(repo), `${path.basename(repo)}-doomed`);
@@ -61,6 +64,11 @@ describe("gwt rm with a live worktree", () => {
     assert.equal(result.code, 1, "exits non-zero rather than half-removing");
     assert.match(result.output, /still running/);
     assert.match(result.output, /pkill -f/, "says how to clear it");
+    assert.doesNotMatch(
+      result.output,
+      /Stop them and remove|Stopped \d+ process/,
+      "never offers to kill them",
+    );
 
     const listed = git(repo, "worktree", "list");
     assert.match(listed, /doomed/, "the worktree is still registered");

@@ -12,10 +12,15 @@
   worktree with 51 live processes: 144 KB of orphans left behind, including the
   repository's `CLAUDE.md` and `eslint.config.mjs`.
 
-  `rm` now looks for processes running under the worktree first. In a terminal
-  it names them and offers to stop them; without one it refuses and prints the
-  `pkill` to run. **`--force` deliberately does not override this** — it means
-  "the tree is dirty and I know", not "delete the files under a running server".
+  `rm` now looks for processes running under the worktree first, names them, and
+  refuses — the same shape as the existing dirty-tree guard, which tells you what
+  to do rather than doing it for you. It prints the `pkill` to run.
+
+  **There is deliberately no flag to override it**, and `--force` does not. A
+  dirty tree is data you may be willing to lose; a live process is a mechanism
+  that corrupts the removal itself. The check is also a heuristic on command
+  lines, so a false positive is possible — refusing one costs a minute of
+  confusion, and stopping one would cost a process that mattered.
 
 ### Fixed
 

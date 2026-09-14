@@ -10,11 +10,7 @@ import { resolveWorktree } from "../lib/resolveWorktree.js";
 import { runCommands } from "../lib/setup.js";
 import { requestCd } from "../lib/shellCd.js";
 import { resolveConfig, REPO_CONFIG_FILE } from "../lib/repoConfig.js";
-import {
-  processesIn,
-  describeProcesses,
-  stopProcesses,
-} from "../lib/processes.js";
+import { processesIn, describeProcesses } from "../lib/processes.js";
 
 export async function commandRm(
   query?: string,
@@ -39,41 +35,27 @@ export async function commandRm(
     process.exit(1);
   }
 
-  // Checked before the confirmation, so the answer is given with the cost in
-  // view. --force deliberately does not cover this: it means "the tree is dirty
-  // and I know", not "delete the files under a running server".
+  // Refused, never offered as a prompt — the same shape as the dirty-tree guard
+  // above. Two reasons. Terminating someone's dev servers is not this command's
+  // business: it removes a worktree, and it has no idea whether one of those
+  // processes is a debugger someone is standing in. And the detection is a
+  // heuristic on command lines, so a false positive is possible — refusing one
+  // costs a minute of confusion, killing one costs a process that mattered.
+  //
+  // There is deliberately no flag to override it. A dirty tree is data you may
+  // be willing to lose; a live process is a mechanism that corrupts the removal
+  // itself, and no amount of certainty makes that safe.
   const running = processesIn(worktreePath);
   if (running.length > 0) {
     const names = describeProcesses(running);
-    log.warn(
+    log.error(
       `${running.length} process(es) still running in this worktree` +
         (names.length > 0 ? ` (${names.join(", ")})` : "") +
         `.\n   Removing now deletes files underneath them, and git leaves the` +
-        `\n   directory half-emptied — a state gwt cannot repair.`,
+        `\n   directory half-emptied — a state gwt cannot repair.` +
+        `\n   Stop them first:  pkill -f ${worktreePath}`,
     );
-
-    if (!process.stdin.isTTY) {
-      log.error(
-        `Stop them first:\n   pkill -f ${worktreePath}`,
-      );
-      process.exit(1);
-    }
-
-    const stop = await confirm({ message: `Stop them and remove anyway?` });
-    if (isCancel(stop) || !stop) {
-      cancel("Cancelled");
-      process.exit(0);
-    }
-
-    const survivors = stopProcesses(running);
-    if (survivors.length > 0) {
-      log.error(
-        `${survivors.length} process(es) would not stop (${survivors.join(", ")}).` +
-          `\n   Removing anyway would leave the directory in a state gwt cannot repair.`,
-      );
-      process.exit(1);
-    }
-    log.success(`Stopped ${running.length} process(es)`);
+    process.exit(1);
   }
 
   // clack cannot open a prompt without a TTY — it dies with a raw
