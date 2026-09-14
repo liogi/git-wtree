@@ -1,6 +1,7 @@
 import { execFileSync } from "child_process";
 import path from "path";
 import fs from "fs";
+import { log } from "@clack/prompts";
 
 export interface WorktreeEntry {
   path: string;
@@ -132,10 +133,54 @@ export function addWorktree(
   from?: string,
 ): void {
   const root = getRepoRoot();
+  // --no-track when branching off a base: git would otherwise set the new
+  // branch's upstream to that base, and a bare `git push` then fails with
+  // "the upstream branch of your current branch does not match the name of your
+  // current branch" and helpfully suggests `git push origin HEAD:production`.
+  // Copy that on a tired afternoon and a fix lands on the default branch.
   const args = branchExists(branch)
     ? ["worktree", "add", worktreePath, branch]
-    : ["worktree", "add", worktreePath, "-b", branch, ...(from ? [from] : [])];
+    : [
+        "worktree",
+        "add",
+        worktreePath,
+        ...(from ? ["--no-track"] : []),
+        "-b",
+        branch,
+        ...(from ? [from] : []),
+      ];
   runVisible("git", args, root);
+}
+
+/**
+ * Refreshes the remote counterpart of `base`, and says so when a local base is
+ * behind it.
+ *
+ * `add` only fetched when the branch already existed, so creating a new branch
+ * from `--from production` used whatever the local ref happened to be — weeks
+ * stale on a repository left alone, silently.
+ */
+export function fetchBase(base: string): void {
+  const root = getRepoRoot();
+  const remoteless = base.startsWith("origin/") ? base.slice("origin/".length) : base;
+  try {
+    runVisible("git", ["fetch", "origin", remoteless], root);
+  } catch {
+    // A base with no remote counterpart is legitimate: a local-only branch, or
+    // a tag. Creating from it is still what was asked.
+    return;
+  }
+
+  if (base.startsWith("origin/")) return;
+  const remote = `origin/${remoteless}`;
+  if (!succeeds("git", ["rev-parse", "--verify", remote], root)) return;
+  const behind = run("git", ["rev-list", "--count", `${base}..${remote}`], root);
+  if (behind !== "0") {
+    log.warn(
+      `Local '${base}' is ${behind} commit(s) behind ${remote}. ` +
+        `Pass --from ${remote} to branch from the remote instead.`,
+    );
+  }
 }
 
 export function removeWorktree(worktreePath: string): void {
