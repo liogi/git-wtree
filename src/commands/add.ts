@@ -1,6 +1,7 @@
 import { intro, outro, log, select, isCancel } from "@clack/prompts";
 import pc from "picocolors";
 import {
+  fetchBase,
   getRepoRoot,
   getWorktreePath,
   worktreeExists,
@@ -97,6 +98,10 @@ export async function commandAdd(
 
   if (from) {
     log.info(`Creating from base branch: ${from}`);
+    if (!branchAlreadyExists) {
+      log.step("Fetching base…");
+      fetchBase(from);
+    }
   }
 
   log.step("Creating git worktree…");

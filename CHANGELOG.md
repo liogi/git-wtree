@@ -1,5 +1,42 @@
 # Changelog
 
+## Unreleased
+
+### Fixed — data loss
+
+- **`gwt rm` could half-delete a worktree, and then could not finish the job.**
+  With a dev server still running, `git worktree remove` deletes files while the
+  process recreates them, the final `rmdir` fails — and git has already
+  deregistered the worktree by then. The retry answers `No worktree matching`,
+  and the half-emptied directory can only be cleared by hand. Observed on a
+  worktree with 51 live processes: 144 KB of orphans left behind, including the
+  repository's `CLAUDE.md` and `eslint.config.mjs`.
+
+  `rm` now looks for processes running under the worktree first, names them, and
+  refuses — the same shape as the existing dirty-tree guard, which tells you what
+  to do rather than doing it for you. It prints the `pkill` to run.
+
+  **There is deliberately no flag to override it**, and `--force` does not. A
+  dirty tree is data you may be willing to lose; a live process is a mechanism
+  that corrupts the removal itself. The check is also a heuristic on command
+  lines, so a false positive is possible — refusing one costs a minute of
+  confusion, and stopping one would cost a process that mattered.
+
+### Fixed
+
+- **A branch created with `--from` inherited the base as its upstream.** `git
+  worktree add -b fix/x <path> origin/main` sets `origin/main` as the upstream,
+  so a bare `git push` refuses — and suggests `git push origin HEAD:main`. Copy
+  that suggestion on a tired afternoon and the fix lands on the default branch.
+  `--from` now passes `--no-track`, and the same `git push` suggests
+  `git push --set-upstream origin fix/x` instead.
+
+- **`--from` branched off a stale base.** `add` fetched only when the branch
+  already existed, so creating a new branch from `--from main` used whatever the
+  local ref happened to be — weeks behind on a repository left alone, with
+  nothing said. It now fetches the base first, and when a local base is behind
+  its remote it says by how many commits and suggests `--from origin/<base>`.
+
 ## 0.8.4
 
 Nothing to reinstall — the shell wrapper is unchanged. `gwt sync-env` copies
